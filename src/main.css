@@ -1,0 +1,17 @@
+.itinerary {
+  width: 100%;
+}
+.itinerary-error {
+  font-weight: 700;
+  padding: 10em;
+  border: 1px solid #f00;
+}
+.itinerary-debug {
+  font-weight: 700;
+  padding: 10em;
+  border: 1px solid #0ff;
+}
+
+.markdown-preview-view .fc table {
+  margin-bottom: 0px;
+}
