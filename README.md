@@ -149,6 +149,7 @@ You can specify the following options for events:
 - `start`: (Required) An ISO timestamp representing your event's start time.
 - `end`: An ISO timestamp representing your event's end time.
 - `tag`: A single string tag or list of tags to associate with this event.  These are useful for specifically marking things like flights or hotel stays so you can generate calendars showing only one kind of event.
+- `hidden`: If `true`, this event will not be rendered individually in your notes where you've specified your event, and instead will appear only on relevant itineraries.  Defaults to `false`.
 
 Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
 
