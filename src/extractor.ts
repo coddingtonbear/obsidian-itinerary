@@ -12,7 +12,8 @@ export function getEventInformation(fileData: string): EventSpec[] {
       try {
         matches.push(parseEventSpec(match[1]));
       } catch (e) {
-        // Nothing
+        // Although you're probably tempted to raise an error here, it
+        // won't help you -- this isn't called from within a render loop.
       }
     }
   } while (match);
@@ -21,7 +22,5 @@ export function getEventInformation(fileData: string): EventSpec[] {
 }
 
 export function parseEventSpec(eventSpec: string): EventSpec {
-  const event: unknown = parseYaml(eventSpec);
-
-  return event;
+  return parseYaml(eventSpec);
 }

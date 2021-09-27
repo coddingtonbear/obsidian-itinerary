@@ -2,13 +2,12 @@ import { Plugin, parseYaml } from "obsidian";
 
 import { parseEventSpec } from "./extractor";
 import { ItineraryRenderer, EventRenderer, renderErrorPre } from "./render";
-import { ItinerarySpec } from "./types";
+import { DocumentPath, ItinerarySpec, EventSpec } from "./types";
+import { getEventInformation } from "./extractor";
 
 import { getArrayForArrayOrObject } from "./util";
 
 import "./main.css";
-
-type DocumentPath = string;
 
 export default class Itinerary extends Plugin {
   /** Map of documents containing itineraries to pages their events
@@ -19,13 +18,26 @@ export default class Itinerary extends Plugin {
   private itineraries: Record<DocumentPath, ItineraryRenderer[]> = {};
   /** Map of documents used as events ources to all the rendered
    * events */
-  private events: Record<DocumentPath, EventRenderer[]> = {};
+  private events: Record<DocumentPath, EventSpec[]> = {};
   /** Map of documents having a debounced refresn scheduled to the
    * relevant setTimeout timer */
   private refreshDebouncers: Record<
     DocumentPath,
     ReturnType<typeof setTimeout>
   > = {};
+
+  /** Receives incoming file change events (for updating events/itineraries) */
+  onFileChange(change: any) {
+    const documentPath = change.path;
+
+    // If this incoming change event was for a document that we're using
+    // as an event source, reload events from that source and instruct
+    // dependent itineraries to update themselves.
+    if (this.eventSources[documentPath]) {
+      this.loadEventsFromSource(documentPath);
+      this.refreshDependentItineraries(documentPath);
+    }
+  }
 
   /** Refreshes displayed itineraries when displayed events have changed.
    *
@@ -41,13 +53,42 @@ export default class Itinerary extends Plugin {
         this.refreshDebouncers[page] = setTimeout(() => {
           delete this.refreshDebouncers[page];
 
-          itinerary.render();
-        }, 250);
+          this.refreshItinerary(itinerary);
+        }, 100);
       }
     }
   }
 
+  /** Updates event content for a given itinerary (& re-render if changed) */
+  refreshItinerary(itinerary: ItineraryRenderer) {
+    let rerender = false;
+
+    for (const sourcePath in this.events) {
+      if (itinerary.updateSource(sourcePath, this.events[sourcePath])) {
+        rerender = true;
+      }
+    }
+
+    if (rerender) {
+      itinerary.render();
+    }
+  }
+
+  /** Loads file content to update cached set of events found in said file. */
+  async loadEventsFromSource(sourcePath: string) {
+    const exists = await this.app.vault.adapter.exists(sourcePath);
+    if (exists) {
+      const fileContents = await this.app.vault.adapter.read(sourcePath);
+
+      this.events[sourcePath] = getEventInformation(fileContents);
+    }
+  }
+
   async onload() {
+    this.registerEvent(
+      this.app.vault.on("modify", this.onFileChange.bind(this))
+    );
+
     this.registerMarkdownCodeBlockProcessor(
       "itinerary",
       async (itinerarySpecString: string, el, ctx) => {
@@ -69,26 +110,20 @@ export default class Itinerary extends Plugin {
             tableSpec.source = [ctx.sourcePath];
           }
 
-          // Collect references to events displayed on the relevant source
-          // pages so we can hand those arrays to the ItineraryRenderer
-          // object.  It's important that we hand the arrays directly,
-          // because the contents of those arrays may change!
-          const events: EventRenderer[][] = [];
-          for (const source of getArrayForArrayOrObject(tableSpec.source)) {
+          // Update the plugin mapping between event sources and dependent
+          // itineraries so we can know which itineraries to refresh
+          // when page contents have changed
+          const eventSources = getArrayForArrayOrObject(tableSpec.source);
+          for (const source of eventSources) {
             if (!this.eventSources[source]) {
               this.eventSources[source] = [];
             }
             if (!this.eventSources[source].includes(ctx.sourcePath)) {
               this.eventSources[source].push(ctx.sourcePath);
             }
-            if (!this.events[source]) {
-              this.events[source] = [];
-            }
-
-            events.push(this.events[source]);
           }
 
-          const itinerary = new ItineraryRenderer(tableSpec, events, el);
+          const itinerary = new ItineraryRenderer(tableSpec, eventSources, el);
 
           // Store the ItineraryRenderer object so we can refresh it later
           // if its events have been changed.
@@ -110,6 +145,19 @@ export default class Itinerary extends Plugin {
           this.itineraries[ctx.sourcePath].push(itinerary);
 
           ctx.addChild(itinerary);
+
+          // Load events from the sources that our itinerary depends upon
+          // (if those events aren't already loaded), and then ask tell
+          // our itinerary to update itself.
+          const loaderPromises: Promise<void>[] = [];
+          for (const source of eventSources) {
+            if (!this.events[source]) {
+              loaderPromises.push(this.loadEventsFromSource(source));
+            }
+          }
+          Promise.all(loaderPromises).then(() =>
+            this.refreshItinerary(itinerary)
+          );
         } catch (e) {
           renderErrorPre(el, e.message);
           return;
@@ -122,34 +170,7 @@ export default class Itinerary extends Plugin {
         try {
           const evt = parseEventSpec(eventSpecString);
 
-          const renderer = new EventRenderer(evt, el);
-
-          // Store the EventRenderer object within the plugin context
-          // so ItineraryRenderers that are sourcing events from this
-          // page will see this updated event.
-          if (!this.events[ctx.sourcePath]) {
-            this.events[ctx.sourcePath] = [];
-          } else {
-            // We might have stale events in our list; let's remove
-            // the ones that are no longer rendered.  We have to schedule
-            // this for the next event loop because it won't be unloaded
-            // until we return from this function.
-            setTimeout(() => {
-              for (const rendered of this.events[ctx.sourcePath]) {
-                if (!rendered.isLoaded()) {
-                  this.events[ctx.sourcePath].remove(rendered);
-                }
-              }
-            }, 1);
-          }
-          this.events[ctx.sourcePath].push(renderer);
-
-          ctx.addChild(renderer);
-
-          // Since we've changed events on this page, we need to
-          // tell itineraries that are sourcing their events from
-          // this page that they need to refresh themselves.
-          this.refreshDependentItineraries(ctx.sourcePath);
+          ctx.addChild(new EventRenderer(evt, el));
         } catch (e) {
           renderErrorPre(el, e.message);
         }

@@ -1,5 +1,7 @@
 import { EventInput, CalendarOptions } from "@fullcalendar/core";
 
+export type DocumentPath = string;
+
 export interface ItinerarySpec extends CalendarOptions {
   source?: string | string[];
   filter?: string | string[];

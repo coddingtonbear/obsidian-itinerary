@@ -17,10 +17,11 @@ export class ItineraryRenderer extends MarkdownRenderChild {
   private loaded: boolean = false;
   private calendar: Calendar;
   private compiledFilters: ((item: Record<string, any>) => any)[] = [];
+  private sources: Record<string, EventSpec[]> = {};
 
   constructor(
     private spec: ItinerarySpec,
-    private sources: EventRenderer[][],
+    private sourcePaths: string[],
     private container: HTMLElement
   ) {
     super(container);
@@ -45,6 +46,22 @@ export class ItineraryRenderer extends MarkdownRenderChild {
     return this.loaded;
   }
 
+  /** Updates stored event information
+   *
+   * Returns `false` if source file is *not* an event source for
+   *   this particular itinerary.
+   * Returns `true` if source file *is*.
+   */
+  updateSource(source: string, events: EventSpec[]): boolean {
+    if (this.sourcePaths.includes(source)) {
+      this.sources[source] = events;
+      this.render();
+      return true;
+    }
+    return false;
+  }
+
+  /** Returns whether selected event matches all provided filter specs. */
   eventMatchesFilters(
     evt: EventSpec,
     filters: ((item: Record<string, any>) => any)[]
@@ -68,10 +85,8 @@ export class ItineraryRenderer extends MarkdownRenderChild {
 
   async render() {
     try {
-      const events = this.sources
-        .map((source) => source.filter((rendered) => rendered.isLoaded()))
-        .flat(1)
-        .map((renderer) => renderer.getEvent())
+      const events = Object.values(this.sources)
+        .flat()
         .filter((evt) => this.eventMatchesFilters(evt, this.compiledFilters));
 
       if (!this.calendar) {
@@ -89,7 +104,7 @@ export class ItineraryRenderer extends MarkdownRenderChild {
       this.calendar.addEventSource(events);
       this.calendar.render();
 
-      setTimeout(() => this.calendar.updateSize(), 100);
+      setTimeout(() => this.calendar.updateSize(), 1);
       if (this.spec.debug) {
         renderErrorPre(
           this.container,
@@ -105,15 +120,12 @@ export class ItineraryRenderer extends MarkdownRenderChild {
 }
 
 export class EventRenderer extends MarkdownRenderChild {
-  private loaded: boolean = false;
-
   constructor(private event: EventSpec, private container: HTMLElement) {
     super(container);
   }
 
   async onload() {
     await this.render();
-    this.loaded = true;
   }
 
   async render() {
@@ -181,18 +193,6 @@ export class EventRenderer extends MarkdownRenderChild {
     } catch (e) {
       renderErrorPre(this.container, e);
     }
-  }
-
-  async onunload() {
-    this.loaded = false;
-  }
-
-  isLoaded(): boolean {
-    return this.loaded;
-  }
-
-  getEvent(): EventSpec {
-    return this.event;
   }
 }
 
