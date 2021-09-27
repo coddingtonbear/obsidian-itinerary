@@ -6,109 +6,109 @@ Planning a vacation or need to otherwise see a set of events on a monthly, weekl
 
 Imaging you have a document outlining what you want to do during an upcoming trip to Mexico; you could try to keep track of things in text like this:
 
-```
-    # Trip to Mexico
+~~~
+# Trip to Mexico
 
-    Finally a chance to explore again.
+Finally a chance to explore again.
 
-    ## Oaxaca
+## Oaxaca
 
-    Hotel: Hotel Fortin Plaza; check-in 5pm on 31 October check-out by 11am on 4 November
+Hotel: Hotel Fortin Plaza; check-in 5pm on 31 October check-out by 11am on 4 November
 
-    ### Day of the dead Parade
-    
-    Noon on November 1st
+### Day of the dead Parade
 
-    See more information here: https://thehaphazardtraveler.com/day-of-the-dead-in-oaxaca/
+Noon on November 1st
 
-    ### Flight to CDMX
+See more information here: https://thehaphazardtraveler.com/day-of-the-dead-in-oaxaca/
 
-    Volaris Flight 765; 12:31pm on November 10th, landing at 1:49pm
+### Flight to CDMX
 
-    ## Mexico City
+Volaris Flight 765; 12:31pm on November 10th, landing at 1:49pm
 
-    Hotel: Zócalo Central Hotel; check-in 3pm on November 4th, check-out by 10am on November 10th
-```
+## Mexico City
+
+Hotel: Zócalo Central Hotel; check-in 3pm on November 4th, check-out by 10am on November 10th
+~~~
 
 Mostly, though, it's up to your reading ability to keep track of what you have planned for each day, and it's really easy to lose track of things and put yourself into a situation where you forgot to book a hotel one night, or maybe had two conflicting events.
 
 Obsidian Itinerary helps with this by letting you specify events and event calendar displays using a simple format; e.g.:
 
+~~~
+# Trip to Mexico
+
+```itinerary
+initialDate: 2021-11-01
 ```
-    # Trip to Mexico
 
-    ```itinerary
-    initialDate: 2021-11-01
-    ```
+## Oaxaca
 
-    ## Oaxaca
-
-    ```itinerary-event
-    title: Oaxaca
-    allDay: true
-    start: 2021-10-31
-    end: 2021-11-04
-    color: red
-    ```
-
-    ### Hotel
-
-    ```itinerary-event
-    title: Hotel Fortin Plaza
-    start: 2021-10-31T17:00
-    end: 2021-11-04T11:00
-    color: brown
-    tag:
-    - hotel
-    ```
-
-    **Hotel Fortin Plaza**
-    Address: Venus 118, Estrella, 68040 Oaxaca de Juárez, Oax., Mexico
-    Phone: : +52 951 515 7777
-
-    ### Day of the dead Parade
-
-    ```itinerary-event
-    title: Day of the Dead Parade
-    start: 2021-11-01T12:00
-    color: blue
-    tag:
-    - outing
-    ```
-
-    See more information here: https://thehaphazardtraveler.com/day-of-the-dead-in-oaxaca/
-
-    ### Other Plans
-
-    ```itinerary-event
-    title: Drinks with Tom
-    start: 2021-11-01T19:00
-    end: 2021-11-01T21:00
-    tag:
-    - friends
-    ```
-
-    ### Flight to CDMX
-
-    ```itinerary-event
-    title: Volaris Flight 765
-    start: 2021-11-04T12:31
-    end: 2021-11-04T13:49
-    color: green
-    tag:
-    - flight
-    ```
-
-    ## Mexico City
-
-    ```itinerary-event
-    title: Mexico City
-    allDay: true
-    start: 2021-11-04
-    end: 2021-11-08
-    color: red
-    ```
+```itinerary-event
+title: Oaxaca
+allDay: true
+start: 2021-10-31
+end: 2021-11-04
+color: red
 ```
+
+### Hotel
+
+```itinerary-event
+title: Hotel Fortin Plaza
+start: 2021-10-31T17:00
+end: 2021-11-04T11:00
+color: brown
+tag:
+- hotel
+```
+
+**Hotel Fortin Plaza**
+Address: Venus 118, Estrella, 68040 Oaxaca de Juárez, Oax., Mexico
+Phone: : +52 951 515 7777
+
+### Day of the dead Parade
+
+```itinerary-event
+title: Day of the Dead Parade
+start: 2021-11-01T12:00
+color: blue
+tag:
+- outing
+```
+
+See more information here: https://thehaphazardtraveler.com/day-of-the-dead-in-oaxaca/
+
+### Other Plans
+
+```itinerary-event
+title: Drinks with Tom
+start: 2021-11-01T19:00
+end: 2021-11-01T21:00
+tag:
+- friends
+```
+
+### Flight to CDMX
+
+```itinerary-event
+title: Volaris Flight 765
+start: 2021-11-04T12:31
+end: 2021-11-04T13:49
+color: green
+tag:
+- flight
+```
+
+## Mexico City
+
+```itinerary-event
+title: Mexico City
+allDay: true
+start: 2021-11-04
+end: 2021-11-08
+color: red
+```
+~~~
 
 And as a reward for your effort, you can then render calendars for your various plans, e.g:
 
@@ -168,12 +168,12 @@ See "Filtering displayed rows" for an example of a filter expression in action, 
 
 Say that you have a particularly complicated day that you'd like to render to make sure you've left yourself enough time between things:
 
+~~~
+```itinerary
+initialDate: 2021-11-01
+initialView: listDay
 ```
-    ```itinerary
-    initialDate: 2021-11-01
-    initialView: listDay
-    ```
-```
+~~~
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/listDay.png)
 
@@ -183,32 +183,33 @@ Try using `timeGridDay`, too!
 
 This is particularly easily done since `allDay` is an event property:
 
+~~~
+```itinerary
+filter:
+- allDay
 ```
-    ```itinerary
-    filter:
-    - allDay
-    ```
-```
+~~~
 
 ### Filtering events based upon tag
 
 You can filter events based upon what tags are available easily, for example:
 
+~~~
+```itinerary
+filter:
+- '"hotel" in tag'
 ```
-    ```itinerary
-    filter:
-    - '"hotel" in tag'
-    ```
-```
+~~~
 
 or 
 
+~~~
+```itinerary
+filter:
+- '"hotel" not in tag'
 ```
-    ```itinerary
-    filter:
-    - '"hotel" not in tag'
-    ```
-```
+~~~
+
 
 Note that the single quotes surrounding the whole expression are necessary given that this is a YAML document, and YAML documents have some parsing rules that make this just slightly awkward.
 
@@ -216,11 +217,11 @@ Note that the single quotes surrounding the whole expression are necessary given
 
 Maybe you don't want to see the toolbar above your rendered calendar?
 
+~~~
+```itinerary
+headerToolbar:
 ```
-    ```itinerary
-    headerToolbar:
-    ```
-```
+~~~
 
 See https://fullcalendar.io/docs/headerToolbar for more information.
 
