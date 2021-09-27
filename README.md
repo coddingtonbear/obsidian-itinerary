@@ -176,6 +176,34 @@ initialView: listDay
 
 Try using `timeGridDay`, too!
 
+### Filtering events based upon tag
+
+You can filter events based upon what tags are available easily, for example:
+
+```itinerary
+filter:
+- '"hotel" in tag'
+```
+
+or 
+
+```itinerary
+filter:
+- '"hotel" not in tag'
+```
+
+Note that the single quotes surrounding the whole expression are necessary given that this is a YAML document, and YAML documents have some parsing rules that make this just slightly awkward.
+
+### Hiding (or changing) the header toolbar
+
+Maybe you don't want to see the toolbar above your rendered calendar?
+
+```itinerary
+headerToolbar:
+```
+
+See https://fullcalendar.io/docs/headerToolbar for more information.
+
 ## Thanks
 
 This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give sombody thanks for the nice rendered calendars, they're the folks who deserve that.
