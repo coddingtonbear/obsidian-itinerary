@@ -1,64 +1,159 @@
-## Obsidian CSV Table
+# Obsidian Itinerary
 
-Have data in a CSV file that you'd like to render as a table in Obsidian? Now you can.
+Planning a vacation or need to otherwise see a set of events on a monthly, weekly, or daily calendar?  If so -- obsidian itinerary can help you keep your plans in order.
 
 ## Quickstart
 
-Imagine you have the following CSV file named `countries.csv`:
+Imaging you have a document outlining what you want to do during an upcoming trip to Mexico; you could try to keep track of things in text like this:
 
 ```
-name,capitol,population
-United States of America,"Washington, DC",328200000
-Colombia,Bogota,50340000
-Russia,Moscow,144400000
+    # Trip to Mexico
+
+    Finally a chance to explore again.
+
+    ## Oaxaca
+
+    Hotel: Hotel Fortin Plaza; check-in 5pm on 31 October check-out by 11am on 4 November
+
+    ### Day of the dead Parade
+    
+    Noon on November 1st
+
+    See more information here: https://thehaphazardtraveler.com/day-of-the-dead-in-oaxaca/
+
+    ### Flight to CDMX
+
+    Volaris Flight 765; 12:31pm on November 10th, landing at 1:49pm
+
+    ## Mexico City
+
+    Hotel: Zócalo Central Hotel; check-in 3pm on November 4th, check-out by 10am on November 10th
 ```
 
-The following code block:
+Mostly, though, it's up to your reading ability to keep track of what you have planned for each day, and it's really easy to lose track of things and put yourself into a situation where you forgot to book a hotel one night, or maybe had two conflicting events.
 
-~~~
-```csvtable
-source: countries.csv
+Obsidian Itinerary helps with this by letting you specify events and event calendar displays using a simple format; e.g.:
+
 ```
-~~~
+    # Trip to Mexico
 
-will render a table like:
+    ```itinerary
+    initialDate: 2021-11-01
+    ```
 
-<table>
-    <thead>
-        <tr>
-            <th>name</th>
-            <th>capitol</th>
-            <th>population</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>United States of America</td>
-            <td>Washington, DC</td>
-            <td>328200000</td>
-        </tr>
-        <tr>
-            <td>Colombia</td>
-            <td>Bogota</td>
-            <td>50340000</td>
-        </tr>
-        <tr>
-            <td>Russia</td>
-            <td>Moscow</td>
-            <td>144400000</td>
-        </tr>
-    </tbody>
-</table>
+    ## Oaxaca
+
+    ```itinerary-event
+    title: Oaxaca
+    allDay: true
+    start: 2021-10-31
+    end: 2021-11-04
+    color: red
+    ```
+
+    ### Hotel
+
+    ```itinerary-event
+    title: Hotel Fortin Plaza
+    start: 2021-10-31T17:00
+    end: 2021-11-04T11:00
+    color: brown
+    tag:
+    - hotel
+    ```
+
+    **Hotel Fortin Plaza**
+    Address: Venus 118, Estrella, 68040 Oaxaca de Juárez, Oax., Mexico
+    Phone: : +52 951 515 7777
+
+    ### Day of the dead Parade
+
+    ```itinerary-event
+    title: Day of the Dead Parade
+    start: 2021-11-01T12:00
+    color: blue
+    tag:
+    - outing
+    ```
+
+    See more information here: https://thehaphazardtraveler.com/day-of-the-dead-in-oaxaca/
+
+    ### Other Plans
+
+    ```itinerary-event
+    title: Drinks with Tom
+    start: 2021-11-01T19:00
+    end: 2021-11-01T21:00
+    tag:
+    - friends
+    ```
+
+    ### Flight to CDMX
+
+    ```itinerary-event
+    title: Volaris Flight 765
+    start: 2021-11-04T12:31
+    end: 2021-11-04T13:49
+    color: green
+    tag:
+    - flight
+    ```
+
+    ## Mexico City
+
+    ```itinerary-event
+    title: Mexico City
+    allDay: true
+    start: 2021-11-04
+    end: 2021-11-08
+    color: red
+    ```
+```
+
+And as a reward for your effort, you can then render calendars for your various plans, e.g:
+
+![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/overview.png)
+
 
 ## Options
 
-- `source`: (Required) Path to the csv file to render within your notes.
-- `csvOptions`: Options to use for decoding the referenced CSV file; see https://csv.js.org/parse/options/ for available options.
-- `columns`: A list of columns to render. Each item may be either the name of a field to display or an expression (see "Expressions" below), and can be re-named. If unspecified, all columns in the referenced CSV  will be rendered. See "Selecting particular columns" below for details.
-- `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which rows of the referenced CSV will be displayed. If unspecified, all rows of the referenced CSV will be rendered taking into account the value specified for `maxRows` below. See "Filtering displayed rows" for details.
-- `sortBy`: A list of sort expressions (see "Expressions" below) or a single sort expression to use for sorting the displayed rows.  If unspecified, rows will be displayed in the order they appear in the referenced CSV.  See "Sorting Rows" for details.
-- `columnVariables`: A mapping of variable name to column name allowing you to set a name for use in `filter` or `columns` above to reference the value of a field that is not a valid variable name.
-- `maxRows`: The maximum number of rows to display. If unspecified, all unfiltered rows of the referenced CSV will be displayed.
+### Itinerary Options
+
+You can specify the following options for displaying your itinerary:
+
+- `source`: A path to a document or a list of paths to documents from which to gather events for display on this calendar.  Defaults to events found in the same file the calendar is rendered.
+- `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which rows of the referenced CSV will be displayed. If unspecified, all events found in the selected sources will be included.
+- `debug`: Will cause some debugging information to be printed below your rendered itinerary.
+
+In addition to the above, you can provide any options described here: https://fullcalendar.io/docs; particularly useful properties include:
+
+- `initialDate`: The date to focus on your calendar.  This can be useful for displaying a different month than your current date, for example.  Defaults to the current date.
+- `initialView`: What kind of calendar to show; by default, a `dayGridMonth` view will be shown, but the options include:
+  - For display of dates in a calendar grid (see https://fullcalendar.io/docs/daygrid-view)
+    - `dayGridMonth`: Shows a whole calendar month.
+    - `dayGridWeek`: Shows a single week.
+  - For displaying a time grid (see https://fullcalendar.io/docs/timegrid-view)
+    - `timeGridWeek`: Shows a time grid for a whole week.
+    - `timeGridDay`: Shows a time grid for a single day.
+  - For a simple list display (see https://fullcalendar.io/docs/list-view)
+    - `listYear`: For a whole year.
+    - `listMonth`: For a single month.
+    - `listWeek`: For a single week.
+    - `listDay` For a single day.
+
+### Itinerary Event Options
+
+You can specify the following options for events:
+
+- `title`: (Required) A name for your event.
+- `start`: (Required) An ISO timestamp representing your event's start time.
+- `end`: An ISO timestamp representing your event's end time.
+- `tag`: A single string tag or list of tags to associate with this event.  These are useful for specifically marking things like flights or hotel stays so you can generate calendars showing only one kind of event.
+
+Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
+
+- `color`: For marking your events in a particular color
+- `allDay`: For marking your event as an "all-day" event.
 
 ### Expressions
 
@@ -66,192 +161,6 @@ This library uses `filtrex` for expression evaluation; see their documentation t
 
 See "Filtering displayed rows" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
 
-### Selecting particular columns
+## Thanks
 
-You can use the `columns` field to control which columns of your CSV file to render, e.g:
-
-~~~
-```csvtable
-columns:
-- name
-- population
-source: my_csv_file.csv
-```
-~~~
-
-<table>
-    <thead>
-        <tr>
-            <th>name</th>
-            <th>population</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>United States of America</td>
-            <td>328200000</td>
-        </tr>
-        <tr>
-            <td>Colombia</td>
-            <td>50340000</td>
-        </tr>
-        <tr>
-            <td>Russia</td>
-            <td>144400000</td>
-        </tr>
-    </tbody>
-</table>
-
-It's also possible for you to set better names for your columns or use expressions:
-
-~~~
-```csvtable
-columns:
-- expression: name
-  name: Country Name
-- expression: population  / 1000000
-  name: Population (Millions)
-source: my_csv_file.csv
-```
-~~~
-
-<table>
-    <thead>
-        <tr>
-            <th>Country Name</th>
-            <th>Population (Millions)</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>United States of America</td>
-            <td>328.2</td>
-        </tr>
-        <tr>
-            <td>Colombia</td>
-            <td>50.34</td>
-        </tr>
-        <tr>
-            <td>Russia</td>
-            <td>144.4</td>
-        </tr>
-    </tbody>
-</table>
-
-### Filtering displayed rows
-
-Maybe you would like to display only a subset of the rows of your CSV?  If so, you can provide a `filter` expression to limit which rows are shown:
-
-~~~
-```csvtable
-source: my_csv_file.csv
-filter: population < 100000000
-```
-~~~
-
-<table>
-    <thead>
-        <tr>
-            <th>name</th>
-            <th>population</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Colombia</td>
-            <td>50340000</td>
-        </tr>
-    </tbody>
-</table>
-
-By default, the parser will attempt to cast the values of each field to an integer, boolean, or date object where appropriate for use in your filter expressions.  Also, note that your filter expression can also be provided as a list; those expressions will be and-ed together, e.g.:
-
-~~~
-```csvtable
-source: my_csv_file.csv
-filter:
-- population < 100000000
-- name == "Colombia"
-```
-~~~
-
-Note that the filtering language requires that you use double-quoted strings in comparisons -- if you had entered `name == 'Colombia'` above, the filter would not have returned results.
-
-### Sorting Rows
-
-If you would like to sort the rows of your displayed CSV, you can provide a sort expression:
-
-~~~
-```csvtable
-source: my_csv_file.csv
-sortBy: name
-```
-~~~
-
-<table>
-    <thead>
-        <tr>
-            <th>name</th>
-            <th>population</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Colombia</td>
-            <td>50340000</td>
-        </tr>
-        <tr>
-            <td>Russia</td>
-            <td>144400000</td>
-        </tr>
-        <tr>
-            <td>United States of America</td>
-            <td>328200000</td>
-        </tr>
-    </tbody>
-</table>
-
-Additionally, you can specify your `sortBy` expression as a list; the document will be sorted by all specified fields in rank order:
-
-~~~
-```csvtable
-source: my_csv_file.csv
-sortBy:
-- columnOne
-- columnTwo
-```
-~~~
-
-It's also possible for you to sort your displayed data in reverse order if you specify your `sortBy` expression using an extended format allowing you to specify both the expression and direction of sort:
-
-~~~
-```csvtable
-source: my_csv_file.csv
-sortBy:
-- expression: name
-  reversed: true
-```
-~~~
-
-<table>
-    <thead>
-        <tr>
-            <th>name</th>
-            <th>population</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>United States of America</td>
-            <td>328200000</td>
-        </tr>
-        <tr>
-            <td>Russia</td>
-            <td>144400000</td>
-        </tr>
-        <tr>
-            <td>Colombia</td>
-            <td>50340000</td>
-        </tr>
-    </tbody>
-</table>
+This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give sombody thanks for the nice rendered calendars, they're the folks who deserve that.
