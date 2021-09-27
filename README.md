@@ -176,6 +176,15 @@ initialView: listDay
 
 Try using `timeGridDay`, too!
 
+### Filtering events to show only all-day events
+
+This is particularly easily done since `allDay` is an event property:
+
+```itinerary
+filter:
+- allDay
+```
+
 ### Filtering events based upon tag
 
 You can filter events based upon what tags are available easily, for example:
