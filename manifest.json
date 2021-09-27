@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-itinerary",
 	"name": "Itinterary",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"minAppVersion": "0.11.10",
 	"description": "Make planning your trip or event easier by rendering a calendar from event information found in your notes.",
 	"author": "Adam Coddington <me@adamcoddington.net>",
