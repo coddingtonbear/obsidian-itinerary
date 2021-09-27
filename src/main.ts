@@ -34,8 +34,9 @@ export default class Itinerary extends Plugin {
     // as an event source, reload events from that source and instruct
     // dependent itineraries to update themselves.
     if (this.eventSources[documentPath]) {
-      this.loadEventsFromSource(documentPath);
-      this.refreshDependentItineraries(documentPath);
+      this.loadEventsFromSource(documentPath).then(() => {
+        this.refreshDependentItineraries(documentPath);
+      });
     }
   }
 
@@ -46,16 +47,21 @@ export default class Itinerary extends Plugin {
    * from said page. **/
   refreshDependentItineraries(path: DocumentPath): void {
     for (const page of this.eventSources[path] ?? []) {
-      for (const itinerary of this.itineraries[page] ?? []) {
-        if (this.refreshDebouncers[page]) {
-          clearTimeout(this.refreshDebouncers[page]);
-        }
-        this.refreshDebouncers[page] = setTimeout(() => {
-          delete this.refreshDebouncers[page];
+      if (this.refreshDebouncers[page]) {
+        clearTimeout(this.refreshDebouncers[page]);
+      }
+      this.refreshDebouncers[page] = setTimeout(() => {
+        delete this.refreshDebouncers[page];
+
+        for (const itinerary of this.itineraries[page] ?? []) {
+          if (!itinerary.isLoaded()) {
+            this.itineraries[page].remove(itinerary);
+            continue;
+          }
 
           this.refreshItinerary(itinerary);
-        }, 100);
-      }
+        }
+      }, 100);
     }
   }
 

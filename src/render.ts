@@ -91,6 +91,10 @@ export class ItineraryRenderer extends MarkdownRenderChild {
 
       if (!this.calendar) {
         const calendarProps = { ...this.spec };
+        // Our itinerary spec extends the CalendarOptions object used by
+        // @fullcalendar/core, but there are a handful of properties that
+        // are used only by obsidian-itinerary; we need to delete them
+        // or @fullcalendar/core will show a warning in the console.
         delete calendarProps.source;
         delete calendarProps.filter;
         delete calendarProps.debug;
@@ -104,7 +108,7 @@ export class ItineraryRenderer extends MarkdownRenderChild {
       this.calendar.addEventSource(events);
       this.calendar.render();
 
-      setTimeout(() => this.calendar.updateSize(), 1);
+      setTimeout(() => this.calendar.updateSize(), 250);
       if (this.spec.debug) {
         renderErrorPre(
           this.container,
