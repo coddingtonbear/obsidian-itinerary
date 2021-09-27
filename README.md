@@ -167,9 +167,11 @@ See "Filtering displayed rows" for an example of a filter expression in action, 
 
 Say that you have a particularly complicated day that you'd like to render to make sure you've left yourself enough time between things:
 
-```itinerary
-initialDate: 2021-11-01
-initialView: listDay
+```
+    ```itinerary
+    initialDate: 2021-11-01
+    initialView: listDay
+    ```
 ```
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/listDay.png)
@@ -180,25 +182,31 @@ Try using `timeGridDay`, too!
 
 This is particularly easily done since `allDay` is an event property:
 
-```itinerary
-filter:
-- allDay
+```
+    ```itinerary
+    filter:
+    - allDay
+    ```
 ```
 
 ### Filtering events based upon tag
 
 You can filter events based upon what tags are available easily, for example:
 
-```itinerary
-filter:
-- '"hotel" in tag'
+```
+    ```itinerary
+    filter:
+    - '"hotel" in tag'
+    ```
 ```
 
 or 
 
-```itinerary
-filter:
-- '"hotel" not in tag'
+```
+    ```itinerary
+    filter:
+    - '"hotel" not in tag'
+    ```
 ```
 
 Note that the single quotes surrounding the whole expression are necessary given that this is a YAML document, and YAML documents have some parsing rules that make this just slightly awkward.
@@ -207,8 +215,10 @@ Note that the single quotes surrounding the whole expression are necessary given
 
 Maybe you don't want to see the toolbar above your rendered calendar?
 
-```itinerary
-headerToolbar:
+```
+    ```itinerary
+    headerToolbar:
+    ```
 ```
 
 See https://fullcalendar.io/docs/headerToolbar for more information.
