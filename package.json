@@ -1,6 +1,6 @@
 {
   "name": "obsidian-itinerary",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Make planning your trip or event easier by rendering a calendar from event information found in your notes.",
   "main": "main.js",
   "scripts": {
