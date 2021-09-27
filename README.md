@@ -161,6 +161,21 @@ This library uses `filtrex` for expression evaluation; see their documentation t
 
 See "Filtering displayed rows" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
 
+## Tips
+
+### Rendering information for a single day
+
+Say that you have a particularly complicated day that you'd like to render to make sure you've left yourself enough time between things:
+
+```itinerary
+initialDate: 2021-11-01
+initialView: listDay
+```
+
+![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/listDay.png)
+
+Try using `timeGridDay`, too!
+
 ## Thanks
 
 This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give sombody thanks for the nice rendered calendars, they're the folks who deserve that.
