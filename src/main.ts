@@ -1,4 +1,4 @@
-import { Plugin, parseYaml } from "obsidian";
+import { Plugin, parseYaml, TAbstractFile, TFile } from "obsidian";
 
 import { parseEventSpec } from "./extractor";
 import { ItineraryRenderer, EventRenderer, renderErrorPre } from "./render";
@@ -27,16 +27,17 @@ export default class Itinerary extends Plugin {
   > = {};
 
   /** Receives incoming file change events (for updating events/itineraries) */
-  onFileChange(change: any) {
-    const documentPath = change.path;
+  async onFileChange(change: TAbstractFile) {
+    if (change instanceof TFile) {
+      const documentPath = change.path;
 
-    // If this incoming change event was for a document that we're using
-    // as an event source, reload events from that source and instruct
-    // dependent itineraries to update themselves.
-    if (this.eventSources[documentPath]) {
-      this.loadEventsFromSource(documentPath).then(() => {
+      // If this incoming change event was for a document that we're using
+      // as an event source, reload events from that source and instruct
+      // dependent itineraries to update themselves.
+      if (this.eventSources[documentPath]) {
+        await this.loadEventsFromSource(documentPath);
         this.refreshDependentItineraries(documentPath);
-      });
+      }
     }
   }
 
@@ -82,9 +83,9 @@ export default class Itinerary extends Plugin {
 
   /** Loads file content to update cached set of events found in said file. */
   async loadEventsFromSource(sourcePath: string) {
-    const exists = await this.app.vault.adapter.exists(sourcePath);
-    if (exists) {
-      const fileContents = await this.app.vault.adapter.read(sourcePath);
+    const file = this.app.vault.getAbstractFileByPath(sourcePath);
+    if (file instanceof TFile) {
+      const fileContents = await this.app.vault.cachedRead(file);
 
       this.events[sourcePath] = getEventInformation(fileContents);
     }
