@@ -161,29 +161,45 @@ export class EventRenderer extends MarkdownRenderChild {
         const dateStr = element.createEl("div", {
           cls: ["date"],
         });
+        let start: DateTime | null = null;
+        if (this.event.start) {
+          start = DateTime.fromISO(this.event.start);
+        }
+        let end: DateTime | null = null;
+        if (this.event.end) {
+          end = DateTime.fromISO(this.event.end);
+        }
         if (this.event.allDay) {
-          if (!this.event.end || this.event.end == this.event.start) {
-            dateStr.innerText = `${DateTime.fromISO(
-              this.event.start
-            ).toLocaleString(DateTime.DATE_FULL)} (all day)`;
+          if (!end || end == start) {
+            dateStr.innerText = `${end.toLocaleString(
+              DateTime.DATE_FULL
+            )} (all day)`;
           } else {
-            dateStr.innerText = `${DateTime.fromISO(
-              this.event.start
-            ).toLocaleString(DateTime.DATE_FULL)} - ${DateTime.fromISO(
-              this.event.end
-            ).toLocaleString(DateTime.DATE_FULL)} (all day)`;
+            dateStr.innerText = `${start.toLocaleString(
+              DateTime.DATE_FULL
+            )} - ${end.toLocaleString(DateTime.DATE_FULL)} (all day)`;
           }
         } else {
-          if (!this.event.end || this.event.end == this.event.start) {
-            dateStr.innerText = `${DateTime.fromISO(
-              this.event.start
-            ).toLocaleString(DateTime.DATETIME_FULL)}`;
+          if (end) {
+            const zone = this.event.timeZone || this.event.endTimeZone;
+            if (zone) {
+              end = end.setZone(zone);
+            }
+          }
+          if (start) {
+            const zone = this.event.timeZone || this.event.startTimeZone;
+            if (zone) {
+              start = start.setZone(zone);
+            }
+          }
+          if (!end || end == start) {
+            dateStr.innerText = `${start.toLocaleString(
+              DateTime.DATETIME_FULL
+            )}`;
           } else {
-            dateStr.innerText = `${DateTime.fromISO(
-              this.event.start
-            ).toLocaleString(DateTime.DATETIME_FULL)} - ${DateTime.fromISO(
-              this.event.end
-            ).toLocaleString(DateTime.DATETIME_FULL)}`;
+            dateStr.innerText = `${start.toLocaleString(
+              DateTime.DATETIME_FULL
+            )} - ${end.toLocaleString(DateTime.DATETIME_FULL)}`;
           }
         }
 

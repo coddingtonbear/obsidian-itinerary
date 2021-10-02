@@ -11,7 +11,10 @@ export interface ItinerarySpec extends CalendarOptions {
 // See https://fullcalendar.io/docs/event-parsing for details
 export interface EventSpec extends EventInput {
   tag?: string | string[];
+  timeZone?: string;
   start?: string;
+  startTimeZone?: string;
   end?: string;
+  endTimeZone?: string;
   hidden?: boolean;
 }
