@@ -93,7 +93,9 @@ tag:
 ```itinerary-event
 title: Volaris Flight 765
 start: 2021-11-04T12:31
+startTimeZone: America/Los_Angeles
 end: 2021-11-04T13:49
+endTimeZone: America/Mexico_City
 color: green
 tag:
 - flight
@@ -212,6 +214,50 @@ filter:
 
 
 Note that the single quotes surrounding the whole expression are necessary given that this is a YAML document, and YAML documents have some parsing rules that make this just slightly awkward.
+
+### Timezones
+
+Itineraries and events are timezone-aware and will by default interpret your events and display your itineraries using your local timezone.  You can, though, override that easily.
+
+#### Itinerary
+
+If you're planning a proper adventure, you might be far from home for part of your trip, and might want a particular itinerary to be displayed in that locale's timezone.  To do that, you can use the `timeZone` property; e.g.:
+
+~~~
+```itinerary
+initialDate: 2021-10-21
+timeZone: America/Los_Angeles
+```
+~~~
+
+If you provide the `timeZone` option, all events' displayed times will be shifted to be shown in local time of the timezone you've provided.
+
+#### Event
+
+If your event is occurring far from home, you might want to specify a timezone to interpret the dates/times in:
+
+~~~
+```itinerary-event
+title: New Years Eve Celebration
+start: 2021-12-31T18:00
+end: 2022-01-01T04:00
+timeZone: America/New_York
+```
+~~~
+
+When flying any significant horizontal distance around the globe, you're likely to cross some timezone boundaries during a particular event.  If you have events that have differing start/end timezones, you can use the `startTimeZone` and `endTimeZone` options, e.g.:
+
+~~~
+```itinerary-event
+title: PDX->YUL (AC 8653, AC 308)
+start: 2022-08-07T10:30
+startTimeZone: America/Los_Angeles
+end: 2022-08-07T20:49
+endTimeZone: America/Montreal
+```
+~~~
+
+These specified time zones will be interpreted preferentially over a specified `timeZone` for your event; you probably want to provide either a `timeZone` or a `startTimeZone`/`endTimeZone` pair, though.
 
 ### Hiding (or changing) the header toolbar
 

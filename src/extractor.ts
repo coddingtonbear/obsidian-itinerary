@@ -1,5 +1,6 @@
 import { parseYaml } from "obsidian";
 import { EventSpec } from "./types";
+import { DateTime } from "luxon";
 
 export function getEventInformation(fileData: string): EventSpec[] {
   const matcher = /```itinerary-event\n([^`]*)\n```/g;
@@ -22,5 +23,21 @@ export function getEventInformation(fileData: string): EventSpec[] {
 }
 
 export function parseEventSpec(eventSpec: string): EventSpec {
-  return parseYaml(eventSpec);
+  const parsed = parseYaml(eventSpec);
+
+  // Apply timezones to start/end times if provided
+  if (!parsed.allDay) {
+    if (parsed.start && (parsed.startTimeZone || parsed.timeZone)) {
+      parsed.start = DateTime.fromISO(parsed.start, {
+        zone: parsed.startTimeZone || parsed.timeZone,
+      }).toISO();
+    }
+    if (parsed.end && (parsed.endTimeZone || parsed.timeZone)) {
+      parsed.end = DateTime.fromISO(parsed.end, {
+        zone: parsed.endTimeZone || parsed.timeZone,
+      }).toISO();
+    }
+  }
+
+  return parsed;
 }
