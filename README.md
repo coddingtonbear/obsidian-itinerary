@@ -181,6 +181,22 @@ initialView: listDay
 
 Try using `timeGridDay`, too!
 
+
+### Rendering a span of time that isn't a week or day
+
+Imagine that you're going to be in some particular place for exactly four days; with the default `dayGrid` or `weekGrid` views, you'd have either not all of the relevant events displayed or you'd have many blank days shown.  You can instead render a particular number of days easily by using the `duration` option:
+
+~~~
+```
+initialDate: 2021-10-22
+initialView: dayGrid
+duration:
+  days: 4
+```
+~~~
+
+This option works for several of the grid options; try `timeGrid`, too, if you need more detail.
+
 ### Filtering events to show only all-day events
 
 This is particularly easily done since `allDay` is an event property:
