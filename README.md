@@ -271,6 +271,35 @@ headerToolbar:
 
 See https://fullcalendar.io/docs/headerToolbar for more information.
 
+### Ordering calendar events
+
+Perhaps you're printing some types of events on a monthly calendar:
+
+![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/eventOrderBad.png)
+
+and would rather that the events be displayed in a consistent order based upon the color you set for them:
+
+![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/eventOrderGood.png)
+
+You can set a sort order for your calendar using the `eventOrder` option:
+
+~~~
+```itinerary
+eventOrder: start,color
+```
+~~~
+
+This will suggest to the calendar that you'd like your events ordered first by their start time, and secondarily by their color.  The calendar will ignore this suggestion if it can arrange your calendar more compactly by ignoring this suggestion, though, but you can force it to always use your suggested ordering by using the `eventOrderStrict` option:
+
+~~~
+```itinerary
+eventOrder: start,color
+eventOrderStrict: true
+```
+~~~
+
+See [FullCalendar's docs](https://fullcalendar.io/docs/eventOrder) covering this for more details.
+
 ## Thanks
 
 This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give sombody thanks for the nice rendered calendars, they're the folks who deserve that.

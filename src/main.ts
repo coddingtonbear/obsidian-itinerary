@@ -62,7 +62,7 @@ export default class Itinerary extends Plugin {
 
           this.refreshItinerary(itinerary);
         }
-      }, 100);
+      }, 5000);
     }
   }
 
