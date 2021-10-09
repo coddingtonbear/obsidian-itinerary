@@ -147,16 +147,10 @@ export class EventRenderer extends MarkdownRenderChild {
         const name = element.createEl("div", {
           cls: ["name"],
         });
-        const defaultColor = "#3788d8";
-        const defaultTextColor = "#ffffff";
-
-        name.style.backgroundColor =
-          this.event.backgroundColor ?? this.event.color ?? defaultColor;
-        name.style.borderColor =
-          this.event.borderColor ?? this.event.borderColor ?? defaultColor;
-        name.style.color = this.event.textColor ?? defaultTextColor;
-
-        name.innerText = this.event.title ?? "Untitled Event";
+        name.style.backgroundColor = this.event.backgroundColor;
+        name.style.borderColor = this.event.borderColor;
+        name.style.color = this.event.textColor;
+        name.innerText = this.event.title;
 
         const dateStr = element.createEl("div", {
           cls: ["date"],

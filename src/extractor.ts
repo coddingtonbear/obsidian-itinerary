@@ -2,6 +2,9 @@ import { parseYaml } from "obsidian";
 import { EventSpec } from "./types";
 import { DateTime } from "luxon";
 
+const DefaultTextColor = "white";
+const DefaultColor = "blue";
+
 export function getEventInformation(fileData: string): EventSpec[] {
   const matcher = /```itinerary-event\n([^`]*)\n```/g;
   const matches: EventSpec[] = [];
@@ -37,6 +40,19 @@ export function parseEventSpec(eventSpec: string): EventSpec {
         zone: parsed.endTimeZone || parsed.timeZone,
       }).toISO();
     }
+  }
+
+  if (!parsed.backgroundColor) {
+    parsed.backgroundColor = parsed.color ?? DefaultColor;
+  }
+  if (!parsed.borderColor) {
+    parsed.borderColor = parsed.color ?? DefaultColor;
+  }
+  if (!parsed.textColor) {
+    parsed.textColor = DefaultTextColor;
+  }
+  if (!parsed.title) {
+    parsed.title = "Untitled Event";
   }
 
   return parsed;

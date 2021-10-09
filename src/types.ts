@@ -17,4 +17,7 @@ export interface EventSpec extends EventInput {
   end?: string;
   endTimeZone?: string;
   hidden?: boolean;
+  title: string;
+  backgoundColor: string;
+  textColor: string;
 }
