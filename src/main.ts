@@ -131,7 +131,7 @@ export default class Itinerary extends Plugin {
                 // Fully-qualified matches (ones in subfolders)
                 if (f.parent.path + "/" + f.basename === sourceName) {
                   return true;
-                  // Non-fully-qualified (in the project root); not that
+                  // Non-fully-qualified (in the project root); note that
                   // this isn't in conflict with the above as files in
                   // the root folder will _still_ have a parent with a
                   // path of '/', so if a slash is in the source name
