@@ -120,17 +120,49 @@ export default class Itinerary extends Plugin {
           // Update the plugin mapping between event sources and dependent
           // itineraries so we can know which itineraries to refresh
           // when page contents have changed
+          const allFiles = this.app.vault.getFiles();
           const eventSources = getArrayForArrayOrObject(tableSpec.source);
+          const resolvedEventSources: string[] = [];
           for (const source of eventSources) {
-            if (!this.eventSources[source]) {
-              this.eventSources[source] = [];
+            var sourcePath: string = undefined;
+            if (source.startsWith("[[") && source.endsWith("]]")) {
+              const sourceName = source.slice(2, -2);
+              const match = allFiles.find((f) => {
+                // Fully-qualified matches (ones in subfolders)
+                if (f.parent.path + "/" + f.basename === sourceName) {
+                  return true;
+                  // Non-fully-qualified (in the project root); not that
+                  // this isn't in conflict with the above as files in
+                  // the root folder will _still_ have a parent with a
+                  // path of '/', so if a slash is in the source name
+                  // in any way whatsoever, this conditional will not match
+                } else if (f.basename === sourceName) {
+                  return true;
+                }
+
+                return false;
+              });
+              if (!match) {
+                throw new Error(`Could not resolve ${source} to a path`);
+              }
+              sourcePath = match.path;
+            } else {
+              sourcePath = source;
             }
-            if (!this.eventSources[source].includes(ctx.sourcePath)) {
-              this.eventSources[source].push(ctx.sourcePath);
+            resolvedEventSources.push(sourcePath);
+            if (!this.eventSources[sourcePath]) {
+              this.eventSources[sourcePath] = [];
+            }
+            if (!this.eventSources[sourcePath].includes(ctx.sourcePath)) {
+              this.eventSources[sourcePath].push(ctx.sourcePath);
             }
           }
 
-          const itinerary = new ItineraryRenderer(tableSpec, eventSources, el);
+          const itinerary = new ItineraryRenderer(
+            tableSpec,
+            resolvedEventSources,
+            el
+          );
 
           // Store the ItineraryRenderer object so we can refresh it later
           // if its events have been changed.
@@ -157,7 +189,7 @@ export default class Itinerary extends Plugin {
           // (if those events aren't already loaded), and then ask tell
           // our itinerary to update itself.
           const loaderPromises: Promise<void>[] = [];
-          for (const source of eventSources) {
+          for (const source of resolvedEventSources) {
             if (!this.events[source]) {
               loaderPromises.push(this.loadEventsFromSource(source));
             }
