@@ -126,6 +126,7 @@ You can specify the following options for displaying your itinerary:
 - `source`: The name of an obsidian source (or list of obsidian source) to gather data from; note that this must be surrounded in quotes (e.g. `"[[My Vacation Plans]]"`).  Defaults to events found in the same file the calendar is rendered in.  This field also accepts a path relative to your vault root instead of an obsian source name, but using an obsidian source name is recommended since such a name can be autocompleted via the editor.
 - `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which rows of the referenced CSV will be displayed. If unspecified, all events found in the selected sources will be included.
 - `debug`: Will cause some debugging information to be printed below your rendered itinerary.
+- `sourcetags`: A tag (or list of tags) of files from which to gather data; as with `source` this must be surrounded by quotes and include `#` (e.g. `"#events"`). This does not override `source`.
 
 In addition to the above, you can provide any options described here: https://fullcalendar.io/docs; particularly useful properties include:
 
@@ -219,7 +220,7 @@ filter:
 ```
 ~~~
 
-or 
+or
 
 ~~~
 ```itinerary
