@@ -1,4 +1,4 @@
-import { Plugin, parseYaml, TAbstractFile, TFile } from "obsidian";
+import { Plugin, parseYaml, TAbstractFile, TFile, getAllTags } from "obsidian";
 
 import { parseEventSpec } from "./extractor";
 import { ItineraryRenderer, EventRenderer, renderErrorPre } from "./render";
@@ -155,6 +155,27 @@ export default class Itinerary extends Plugin {
             }
             if (!this.eventSources[sourcePath].includes(ctx.sourcePath)) {
               this.eventSources[sourcePath].push(ctx.sourcePath);
+            }
+          }
+
+          // Add any files with any of sourcetags to eventSources
+          if (tableSpec.sourcetags) {
+            const sTags = getArrayForArrayOrObject(tableSpec.sourcetags);
+            for (const file of allFiles) {
+              // Get all tags for file
+              const cache = this.app.metadataCache.getFileCache(file);
+              const fileTags: string[] = getAllTags(cache);
+              if (fileTags.filter(value => sTags.includes(value)).length > 0) {
+                // If the intersection between fileTags and sTags is non-empty,
+                // add the file path to resolvedEventSources
+                resolvedEventSources.push(file.path);
+                if (!this.eventSources[file.path]) {
+                  this.eventSources[file.path] = [];
+                }
+                if (!this.eventSources[file.path].includes(ctx.sourcePath)) {
+                  this.eventSources[file.path].push(ctx.sourcePath);
+                }
+              }
             }
           }
 

@@ -98,6 +98,7 @@ export class ItineraryRenderer extends MarkdownRenderChild {
         delete calendarProps.source;
         delete calendarProps.filter;
         delete calendarProps.debug;
+        delete calendarProps.sourcetags;
 
         this.calendar = new Calendar(this.container, {
           plugins: [dayGridPlugin, timeGridPlugin, listPlugin, luxonPlugin],

@@ -4,6 +4,7 @@ export type DocumentPath = string;
 
 export interface ItinerarySpec extends CalendarOptions {
   source?: string | string[];
+  sourcetags?: string | string[];
   filter?: string | string[];
   debug?: boolean;
 }
