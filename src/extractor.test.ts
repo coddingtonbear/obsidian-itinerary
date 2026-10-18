@@ -175,7 +175,10 @@ describe("getEventInformation formatting", () => {
 
   test("does not run an empty block into the next one", () => {
     const doc = "```itinerary-event\n```\n\n```itinerary-event\ntitle: Next\n```";
-    expect(getEventInformation(doc).map((e) => e.title)).toEqual(["Next"]);
+    expect(getEventInformation(doc).map((e) => e.title)).toEqual([
+      "Untitled event",
+      "Next",
+    ]);
   });
 
   test("finds indented blocks, such as those in a list", () => {

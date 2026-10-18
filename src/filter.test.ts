@@ -1,5 +1,10 @@
-import { compileFilter } from "./filter";
+import { compileFilter as compileWithErrors } from "./filter";
 import { EventSpec } from "./types";
+
+function compileFilter(expression: string) {
+  const filter = compileWithErrors(expression);
+  return (evt: EventSpec): boolean => filter(evt).matched;
+}
 
 function event(fields: Partial<EventSpec>): EventSpec {
   return {
@@ -58,8 +63,11 @@ describe("compileFilter", () => {
     expect(filter(event({ color: "blue" }))).toBe(false);
   });
 
-  test("treats a runtime error as not matching", () => {
-    expect(compileFilter("nonexistentFunction(title)")(event({}))).toBe(false);
+  test("treats a runtime error as not matching, and says why", () => {
+    expect(compileWithErrors("nonexistentFunction(title)")(event({}))).toEqual({
+      matched: false,
+      error: expect.stringMatching(/nonexistentFunction/) as unknown,
+    });
   });
 
   test("compares ISO dates as text", () => {

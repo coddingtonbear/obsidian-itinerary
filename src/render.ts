@@ -101,8 +101,13 @@ export class ItineraryRenderer
 
   private matchesFilters(evt: EventSpec, messages: string[]): boolean {
     for (const [idx, filter] of this.filters.entries()) {
-      if (!filter(evt)) {
-        messages.push(`Event '${evt.title}' failed filter #${idx}`);
+      const result = filter(evt);
+      if (!result.matched) {
+        messages.push(
+          result.error === undefined
+            ? `Event '${evt.title}' failed filter #${idx}`
+            : `Event '${evt.title}' failed filter #${idx}: ${result.error}`
+        );
         return false;
       }
     }

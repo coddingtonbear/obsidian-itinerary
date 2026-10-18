@@ -9,7 +9,7 @@ const DefaultColor = "blue";
 const DefaultTitle = "Untitled event";
 
 const EventBlockPattern =
-  /^[ \t]*```itinerary-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```/gm;
+  /^[ \t]*```itinerary-event[ \t]*\r?\n([\s\S]*?)^[ \t]*```[ \t]*$/gm;
 
 /** Finds and parses every `itinerary-event` block in a document.
  *
@@ -57,6 +57,15 @@ function readBoolean(
   }
   if (typeof value === "boolean") {
     return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "yes") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "no") {
+      return false;
+    }
   }
   throw new Error(`Event field "${field}" must be true or false.`);
 }
@@ -121,7 +130,7 @@ export function parseEventSpec(eventSpec: string): EventSpec {
 
   const color = readString(spec, "color");
 
-  return {
+  return withoutUndefined({
     ...spec,
     allDay,
     start,
@@ -136,5 +145,14 @@ export function parseEventSpec(eventSpec: string): EventSpec {
       readString(spec, "backgroundColor") ?? color ?? DefaultColor,
     borderColor: readString(spec, "borderColor") ?? color ?? DefaultColor,
     textColor: readString(spec, "textColor") ?? DefaultTextColor,
-  };
+  });
+}
+
+/** Drops options that weren't set. FullCalendar treats an option that is
+ * present but undefined as set: `allDay: undefined` reads as `false`, which
+ * stops it inferring all-day events from date-only times. */
+function withoutUndefined<T extends object>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, v]) => v !== undefined)
+  ) as T;
 }
