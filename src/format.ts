@@ -2,6 +2,13 @@ import { DateTime } from "luxon";
 
 import { EventSpec } from "./types";
 
+/** The time-of-day part of DateTime.DATETIME_FULL. */
+const TimeWithZone: Intl.DateTimeFormatOptions = {
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short",
+};
+
 function parseTime(time: string | undefined, zone: string | undefined) {
   if (time === undefined) {
     return null;
@@ -21,13 +28,15 @@ function parseTime(time: string | undefined, zone: string | undefined) {
 export function describeEventTime(event: EventSpec): string {
   if (event.allDay) {
     const start = parseTime(event.start, undefined);
-    const end = parseTime(event.end, undefined);
-    const first = start ?? end;
-    if (!first) {
+    // FullCalendar treats an all-day event's end date as exclusive (an
+    // event ending on the 4th is drawn through the 3rd), so describe the
+    // last day it is actually shown on.
+    const end = parseTime(event.end, undefined)?.minus({ days: 1 }) ?? null;
+    if (!start) {
       return "All day";
     }
-    if (!start || !end || start.equals(end)) {
-      return `${first.toLocaleString(DateTime.DATE_FULL)} (all day)`;
+    if (!end || end <= start) {
+      return `${start.toLocaleString(DateTime.DATE_FULL)} (all day)`;
     }
     return `${start.toLocaleString(DateTime.DATE_FULL)} - ${end.toLocaleString(
       DateTime.DATE_FULL
@@ -43,7 +52,11 @@ export function describeEventTime(event: EventSpec): string {
   if (!start || !end || start.equals(end)) {
     return first.toLocaleString(DateTime.DATETIME_FULL);
   }
-  return `${start.toLocaleString(
-    DateTime.DATETIME_FULL
-  )} - ${end.toLocaleString(DateTime.DATETIME_FULL)}`;
+  // Leave the date off the end of a range that finishes the same day, in
+  // the same zone, as it began.
+  const sameDay =
+    start.hasSame(end, "day") && start.zoneName === end.zoneName;
+  return `${start.toLocaleString(DateTime.DATETIME_FULL)} - ${end.toLocaleString(
+    sameDay ? TimeWithZone : DateTime.DATETIME_FULL
+  )}`;
 }

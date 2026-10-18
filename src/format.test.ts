@@ -30,18 +30,26 @@ describe("describeEventTime", () => {
     );
   });
 
-  test("describes an all-day event with only an end", () => {
-    expect(describeEventTime(event({ allDay: true, end: "2021-11-04" }))).toBe(
-      "November 4, 2021 (all day)"
-    );
-  });
-
-  test("describes an all-day range", () => {
+  test("describes an all-day range through the day before its end", () => {
     expect(
       describeEventTime(
         event({ allDay: true, start: "2021-10-31", end: "2021-11-04" })
       )
-    ).toBe("October 31, 2021 - November 4, 2021 (all day)");
+    ).toBe("October 31, 2021 - November 3, 2021 (all day)");
+  });
+
+  test("describes an all-day event ending the next day as one day", () => {
+    expect(
+      describeEventTime(
+        event({ allDay: true, start: "2021-11-01", end: "2021-11-02" })
+      )
+    ).toBe("November 1, 2021 (all day)");
+  });
+
+  test("describes an all-day event without a start as undated", () => {
+    expect(describeEventTime(event({ allDay: true, end: "2021-11-04" }))).toBe(
+      "All day"
+    );
   });
 
   test("describes an all-day event without dates", () => {
@@ -54,12 +62,20 @@ describe("describeEventTime", () => {
     );
   });
 
-  test("describes a time range", () => {
+  test("describes a same-day time range without repeating the date", () => {
     expect(
       describeEventTime(
         event({ start: "2021-11-01T19:00", end: "2021-11-01T21:00" })
       )
-    ).toMatch(/7:00\sPM PDT - November 1, 2021(,| at) 9:00\sPM PDT$/);
+    ).toMatch(/^November 1, 2021(,| at) 7:00\sPM PDT - 9:00\sPM PDT$/);
+  });
+
+  test("describes a range across days with both dates", () => {
+    expect(
+      describeEventTime(
+        event({ start: "2021-10-31T17:00", end: "2021-11-04T11:00" })
+      )
+    ).toMatch(/^October 31, 2021.* - November 4, 2021(,| at) 11:00\sAM PDT$/);
   });
 
   test("shows each end of the event in its own zone", () => {

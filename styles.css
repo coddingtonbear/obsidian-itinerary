@@ -47,6 +47,69 @@
   padding: 2px 5px;
 }
 
-.markdown-rendered .itinerary-calendar table {
-  margin-bottom: 0;
+/* Draw the calendar in the active theme's colours. */
+.itinerary-calendar {
+  --fc-border-color: var(--background-modifier-border);
+  --fc-page-bg-color: var(--background-primary);
+  --fc-neutral-bg-color: var(--background-secondary);
+  --fc-neutral-text-color: var(--text-muted);
+  --fc-list-event-hover-bg-color: var(--background-modifier-hover);
+  --fc-today-bg-color: var(--background-modifier-hover);
+  --fc-highlight-color: var(--text-selection);
+  --fc-now-indicator-color: var(--text-error);
+  --fc-small-font-size: var(--font-ui-smaller);
+  --fc-button-text-color: var(--text-normal);
+  --fc-button-bg-color: var(--interactive-normal);
+  --fc-button-border-color: var(--background-modifier-border);
+  --fc-button-hover-bg-color: var(--interactive-hover);
+  --fc-button-hover-border-color: var(--background-modifier-border-hover);
+  --fc-button-active-bg-color: var(--interactive-accent);
+  --fc-button-active-border-color: var(--interactive-accent);
+}
+.itinerary-calendar :where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+.itinerary-calendar .fc-button-primary:not(:disabled).fc-button-active {
+  color: var(--text-on-accent);
+}
+
+/* Obsidian (and many themes) style every table in a rendered note: cell
+ * padding, minimum column widths, alternating row colours and, worst,
+ * `overflow: hidden` on each cell, which clips multi-day events to their
+ * first day and collapses the time grid (#23). FullCalendar lays its
+ * tables out itself, so undo those rules inside the calendar. Most go
+ * through Obsidian's table variables; the rest are reset with :where() so
+ * they outrank Obsidian's selectors without outranking FullCalendar's. */
+.itinerary-calendar {
+  --table-background: transparent;
+  --table-header-background: transparent;
+  --table-header-background-hover: transparent;
+  --table-row-background-hover: transparent;
+  --table-row-alt-background: transparent;
+  --table-row-alt-background-hover: transparent;
+  --table-column-alt-background: transparent;
+  --table-border-width: 1px;
+  --table-border-color: var(--fc-border-color);
+  --table-header-border-width: 1px;
+  --table-header-border-color: var(--fc-border-color);
+  --table-column-first-border-width: 1px;
+  --table-column-last-border-width: 1px;
+  --table-row-last-border-width: 1px;
+  --table-column-min-width: 0;
+  --table-column-max-width: none;
+  --table-white-space: normal;
+  --table-text-size: 1em;
+  --table-text-color: currentColor;
+  --table-header-size: 1em;
+  --table-header-color: currentColor;
+  --table-line-height: normal;
+}
+.markdown-rendered .itinerary-calendar :where(table) {
+  margin: 0;
+}
+.markdown-rendered .itinerary-calendar :where(th, td) {
+  padding: 0;
+  overflow: visible;
+  text-overflow: clip;
 }
