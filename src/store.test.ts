@@ -93,3 +93,65 @@ describe("EventStore", () => {
     expect(events.map((e) => e.title)).toEqual(["A"]);
   });
 });
+
+describe("EventStore.scheduleRefresh", () => {
+  let contents: Record<string, EventSpec[]>;
+  let read: jest.Mock<Promise<EventSpec[]>, [string]>;
+  let store: EventStore;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    contents = { "a.md": [event("A")] };
+    read = jest.fn((path: string) => Promise.resolve(contents[path] ?? []));
+    store = new EventStore(read, 1000);
+  });
+
+  afterEach(() => {
+    store.dispose();
+    jest.useRealTimers();
+  });
+
+  test("refreshes once after a burst of changes", async () => {
+    const onA = subscriber(["a.md"]);
+    store.subscribe(onA);
+
+    store.scheduleRefresh("a.md");
+    jest.advanceTimersByTime(500);
+    store.scheduleRefresh("a.md");
+    jest.advanceTimersByTime(500);
+    store.scheduleRefresh("a.md");
+    expect(read).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test("refreshes every document changed during the burst", async () => {
+    store.subscribe(subscriber(["a.md", "b.md"]));
+
+    store.scheduleRefresh("a.md");
+    store.scheduleRefresh("b.md");
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(read.mock.calls.map(([path]) => path).sort()).toEqual([
+      "a.md",
+      "b.md",
+    ]);
+  });
+
+  test("ignores documents nobody uses", async () => {
+    store.scheduleRefresh("c.md");
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  test("cancels a pending refresh when disposed", async () => {
+    store.subscribe(subscriber(["a.md"]));
+    store.scheduleRefresh("a.md");
+    store.dispose();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(read).not.toHaveBeenCalled();
+  });
+});

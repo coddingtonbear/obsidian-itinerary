@@ -16,7 +16,7 @@ export default class Itinerary extends Plugin {
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
         if (file instanceof TFile) {
-          void this.store.refresh(file.path);
+          this.store.scheduleRefresh(file.path);
         }
       })
     );
@@ -28,6 +28,8 @@ export default class Itinerary extends Plugin {
         this.store.forget(oldPath)
       )
     );
+
+    this.register(() => this.store.dispose());
 
     this.registerMarkdownCodeBlockProcessor("itinerary", (source, el, ctx) =>
       this.renderItinerary(source, el, ctx)

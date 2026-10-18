@@ -19,6 +19,8 @@ export class ItineraryRenderer
 {
   private calendar: Calendar | null = null;
   private statusEl: HTMLElement | null = null;
+  /** Counts refreshes, so one that finishes after a later one is dropped. */
+  private generation = 0;
   private readonly filters: EventFilter[];
   private readonly filterExpressions: string[];
 
@@ -68,17 +70,20 @@ export class ItineraryRenderer
 
   /** Reloads the displayed events from the itinerary's sources. */
   async refresh(): Promise<void> {
+    const generation = ++this.generation;
     let events: EventSpec[];
     try {
       events = await this.store.getEvents(this.sourcePaths);
     } catch (e) {
-      this.showStatus(errorMessage(e), "itinerary-error");
+      if (generation === this.generation) {
+        this.showStatus(errorMessage(e), "itinerary-error");
+      }
       return;
     }
 
     const calendar = this.calendar;
-    if (!calendar) {
-      // Unloaded while the events were loading.
+    if (!calendar || generation !== this.generation) {
+      // Unloaded, or superseded by a later refresh, while loading.
       return;
     }
 

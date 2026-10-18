@@ -177,6 +177,27 @@ describe("ItineraryRenderer", () => {
     renderer.unload();
   });
 
+  test("keeps the newest events when refreshes finish out of order", async () => {
+    const reads: ((events: EventSpec[]) => void)[] = [];
+    store = new EventStore(
+      () => new Promise<EventSpec[]>((resolve) => reads.push(resolve))
+    );
+    const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
+    renderer.load();
+
+    // A change arrives while the first read is still in flight, and its
+    // read finishes first.
+    const refreshing = store.refresh("trip.md");
+    reads[1]([event({ title: "Newer", start: "2021-11-03T09:00" })]);
+    await refreshing;
+    await settle();
+    reads[0]([event({ title: "Older", start: "2021-11-03T09:00" })]);
+    await settle();
+
+    expect(shownTitles()).toEqual(["Newer"]);
+    renderer.unload();
+  });
+
   test("stops listening and tears down when unloaded", async () => {
     const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
     renderer.load();

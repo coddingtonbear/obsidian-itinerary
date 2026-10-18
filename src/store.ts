@@ -14,8 +14,46 @@ export interface EventSubscriber {
 export class EventStore {
   private events = new Map<DocumentPath, Promise<EventSpec[]>>();
   private subscribers = new Set<EventSubscriber>();
+  private pendingRefreshes = new Set<DocumentPath>();
+  private refreshTimer: number | null = null;
 
-  constructor(private readonly read: EventReader) {}
+  /** @param refreshDelay How long `scheduleRefresh` waits for changes to
+   * stop before re-reading, in milliseconds. */
+  constructor(
+    private readonly read: EventReader,
+    private readonly refreshDelay = 1000
+  ) {}
+
+  /** Re-reads a changed document once it has stopped changing.
+   *
+   * Obsidian saves every couple of seconds while a note is being typed in;
+   * redrawing every dependent calendar on each save is wasted work. */
+  scheduleRefresh(path: DocumentPath): void {
+    if (!this.events.has(path) && this.dependentsOf(path).length === 0) {
+      return;
+    }
+    this.pendingRefreshes.add(path);
+    if (this.refreshTimer !== null) {
+      window.clearTimeout(this.refreshTimer);
+    }
+    this.refreshTimer = window.setTimeout(() => {
+      this.refreshTimer = null;
+      const paths = [...this.pendingRefreshes];
+      this.pendingRefreshes.clear();
+      for (const pending of paths) {
+        void this.refresh(pending);
+      }
+    }, this.refreshDelay);
+  }
+
+  /** Cancels any scheduled refresh. */
+  dispose(): void {
+    if (this.refreshTimer !== null) {
+      window.clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.pendingRefreshes.clear();
+  }
 
   /** Registers a subscriber; returns a function that unregisters it. */
   subscribe(subscriber: EventSubscriber): () => void {
