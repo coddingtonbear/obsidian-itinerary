@@ -1,3 +1,4 @@
+import { describe, test, expect } from "vitest";
 import { compileFilter as compileWithErrors } from "./filter";
 import { EventSpec } from "./types";
 

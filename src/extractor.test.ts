@@ -1,3 +1,4 @@
+import { describe, test, expect } from "vitest";
 import { DateTime } from "luxon";
 
 import { getEventInformation, parseEventSpec } from "./extractor";

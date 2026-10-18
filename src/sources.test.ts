@@ -1,3 +1,4 @@
+import { describe, test, expect, vi } from "vitest";
 import { SourceLookup, resolveSourcePath } from "./sources";
 
 function lookup(
@@ -35,7 +36,7 @@ describe("resolveSourcePath", () => {
   });
 
   test("passes the linking note to link resolution", () => {
-    const resolveLink = jest.fn(() => "x.md");
+    const resolveLink = vi.fn(() => "x.md");
     resolveSourcePath("[[Trip]]", "folder/index.md", {
       resolveLink,
       fileExists: () => false,

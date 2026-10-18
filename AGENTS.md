@@ -68,11 +68,13 @@ Releases are performed on the `master` branch after all feature branches have be
 
 2. Edit the `version` field in `package.json` to the new version number.
 
-3. Delete `node_modules` **and** `package-lock.json`, then regenerate the lockfile:
+3. Delete `node_modules` **and** `package-lock.json`, then regenerate the lockfile with npm 11:
    ```
    rm -rf node_modules package-lock.json
-   npm i
+   npx -y npm@11 i
    ```
+
+   npm 10 (bundled with Node 22) crashes resolving Vitest's dependency tree from scratch ("Cannot read properties of null (reading 'edgesOut')"); npm 11 resolves it, and npm 10's `npm ci` installs from the result without trouble.
 
    Obsidian's post-release source review rejects a release whose lockfile it cannot install from with "The npm lockfile is out of date". Leaving `node_modules` in place makes npm record only the optional platform-specific packages for *this* machine (e.g. one `@esbuild/*` binary instead of all of them), which npm 11's `npm ci` rejects; regenerating before the version bump in step 2 leaves the lockfile naming the previous version.
 

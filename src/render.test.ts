@@ -1,9 +1,5 @@
-/**
- * @jest-environment jsdom
- * @jest-environment-options {"customExportConditions": ["node", "require", "default"]}
- */
-// jsdom's default "browser" export condition picks the ESM builds of
-// FullCalendar's dependencies, which Jest's CommonJS runtime can't load.
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+// @vitest-environment jsdom
 import { parseEventSpec } from "./extractor";
 import { ItineraryRenderer, renderEvent } from "./render";
 import { EventStore } from "./store";
@@ -202,7 +198,7 @@ describe("ItineraryRenderer", () => {
     const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
     renderer.load();
     await settle();
-    const refresh = jest.spyOn(renderer, "refresh");
+    const refresh = vi.spyOn(renderer, "refresh");
 
     renderer.unload();
     await store.refresh("trip.md");

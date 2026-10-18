@@ -1,3 +1,4 @@
+import { describe, test, expect } from "vitest";
 import { getCalendarOptions, normalizeSources, parseItinerarySpec } from "./spec";
 
 describe("normalizeSources", () => {

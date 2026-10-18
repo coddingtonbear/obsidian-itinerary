@@ -32,21 +32,21 @@ export default defineConfig([
     },
   },
 
-  // Unit tests use tsconfig.test.json and run under Jest in Node.js.
+  // Unit tests use tsconfig.test.json and run under Vitest in Node.js.
   {
     files: ["src/**/*.test.ts"],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: { project: "./tsconfig.test.json" },
-      globals: { ...globals.node, ...globals.jest },
+      globals: globals.node,
     },
     rules: {
-      // Tests run in Node.js via Jest, not a browser/Obsidian window context.
+      // Tests run in Node.js via Vitest, not a browser/Obsidian window context.
       "obsidianmd/prefer-window-timers": "off",
       // Tests build detached elements; Obsidian's global createDiv() isn't
       // available outside the app.
       "obsidianmd/prefer-create-el": "off",
-      // Jest legitimately passes unbound methods to expect() matchers.
+      // Tests legitimately pass unbound methods to expect() matchers.
       "@typescript-eslint/unbound-method": "off",
     },
   },

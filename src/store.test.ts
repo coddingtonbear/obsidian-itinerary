@@ -1,3 +1,4 @@
+import { describe, test, expect, beforeEach, afterEach, vi, type Mock } from "vitest";
 import { EventStore, EventSubscriber } from "./store";
 import { EventSpec } from "./types";
 
@@ -11,19 +12,19 @@ function event(title: string): EventSpec {
 }
 
 function subscriber(sourcePaths: string[]): EventSubscriber & {
-  onEventsChanged: jest.Mock;
+  onEventsChanged: Mock;
 } {
-  return { sourcePaths, onEventsChanged: jest.fn() };
+  return { sourcePaths, onEventsChanged: vi.fn() };
 }
 
 describe("EventStore", () => {
   let contents: Record<string, EventSpec[]>;
-  let read: jest.Mock<Promise<EventSpec[]>, [string]>;
+  let read: Mock<(path: string) => Promise<EventSpec[]>>;
   let store: EventStore;
 
   beforeEach(() => {
     contents = { "a.md": [event("A")], "b.md": [event("B")] };
-    read = jest.fn((path: string) => Promise.resolve(contents[path] ?? []));
+    read = vi.fn((path: string) => Promise.resolve(contents[path] ?? []));
     store = new EventStore(read);
   });
 
@@ -96,19 +97,19 @@ describe("EventStore", () => {
 
 describe("EventStore.scheduleRefresh", () => {
   let contents: Record<string, EventSpec[]>;
-  let read: jest.Mock<Promise<EventSpec[]>, [string]>;
+  let read: Mock<(path: string) => Promise<EventSpec[]>>;
   let store: EventStore;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     contents = { "a.md": [event("A")] };
-    read = jest.fn((path: string) => Promise.resolve(contents[path] ?? []));
+    read = vi.fn((path: string) => Promise.resolve(contents[path] ?? []));
     store = new EventStore(read, 1000);
   });
 
   afterEach(() => {
     store.dispose();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   test("refreshes once after a burst of changes", async () => {
@@ -116,13 +117,13 @@ describe("EventStore.scheduleRefresh", () => {
     store.subscribe(onA);
 
     store.scheduleRefresh("a.md");
-    jest.advanceTimersByTime(500);
+    vi.advanceTimersByTime(500);
     store.scheduleRefresh("a.md");
-    jest.advanceTimersByTime(500);
+    vi.advanceTimersByTime(500);
     store.scheduleRefresh("a.md");
     expect(read).not.toHaveBeenCalled();
 
-    await jest.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(read).toHaveBeenCalledTimes(1);
     expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
@@ -133,7 +134,7 @@ describe("EventStore.scheduleRefresh", () => {
 
     store.scheduleRefresh("a.md");
     store.scheduleRefresh("b.md");
-    await jest.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(read.mock.calls.map(([path]) => path).sort()).toEqual([
       "a.md",
@@ -143,7 +144,7 @@ describe("EventStore.scheduleRefresh", () => {
 
   test("ignores documents nobody uses", async () => {
     store.scheduleRefresh("c.md");
-    await jest.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(read).not.toHaveBeenCalled();
   });
 
@@ -151,7 +152,7 @@ describe("EventStore.scheduleRefresh", () => {
     store.subscribe(subscriber(["a.md"]));
     store.scheduleRefresh("a.md");
     store.dispose();
-    await jest.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(read).not.toHaveBeenCalled();
   });
 });
