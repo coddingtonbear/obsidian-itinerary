@@ -136,6 +136,19 @@ describe("parseEventSpec validation", () => {
     expect(() => parseEventSpec("hidden: sometimes")).toThrow(/hidden/);
   });
 
+  test("accepts quoted true and false", () => {
+    expect(parseEventSpec('hidden: "true"').hidden).toBe(true);
+    expect(parseEventSpec('allDay: "False"').allDay).toBe(false);
+  });
+
+  test("leaves out options the block doesn't set", () => {
+    // FullCalendar reads a present-but-undefined `allDay` as false, which
+    // stops it inferring all-day events from date-only times.
+    const evt = parseEventSpec("start: 2021-10-31\nend: 2021-11-04");
+    expect(Object.keys(evt)).not.toContain("allDay");
+    expect(Object.values(evt)).not.toContain(undefined);
+  });
+
   test("reads numeric titles and tags as text", () => {
     const evt = parseEventSpec("title: 1984\ntag:\n- 2021\n- trip");
     expect(evt.title).toBe("1984");
@@ -158,6 +171,11 @@ describe("getEventInformation formatting", () => {
     expect(getEventInformation(doc).map((e) => e.title)).toEqual([
       "Uses `code`",
     ]);
+  });
+
+  test("does not run an empty block into the next one", () => {
+    const doc = "```itinerary-event\n```\n\n```itinerary-event\ntitle: Next\n```";
+    expect(getEventInformation(doc).map((e) => e.title)).toEqual(["Next"]);
   });
 
   test("finds indented blocks, such as those in a list", () => {

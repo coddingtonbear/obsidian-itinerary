@@ -4,6 +4,7 @@
  */
 // jsdom's default "browser" export condition picks the ESM builds of
 // FullCalendar's dependencies, which Jest's CommonJS runtime can't load.
+import { parseEventSpec } from "./extractor";
 import { ItineraryRenderer, renderEvent } from "./render";
 import { EventStore } from "./store";
 import { EventSpec, ItinerarySpec } from "./types";
@@ -115,6 +116,37 @@ describe("ItineraryRenderer", () => {
     await settle();
 
     expect(shownTitles()).toEqual(["Hotel", "Parade"]);
+    renderer.unload();
+  });
+
+  test("shows a date-only event as all-day", async () => {
+    contents["trip.md"] = [
+      parseEventSpec("title: Oaxaca\nstart: 2021-10-31\nend: 2021-11-04"),
+    ];
+    const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
+    renderer.load();
+    await settle();
+
+    const times = Array.from(el.querySelectorAll(".fc-list-event-time")).map(
+      (time) => time.textContent
+    );
+    expect(times).toEqual(["all-day", "all-day", "all-day", "all-day"]);
+    renderer.unload();
+  });
+
+  test("explains why an event failed a filter in debug output", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      { ...listSpec, debug: true, filter: ["title > 2"] },
+      ["trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    expect(el.querySelector(".itinerary-debug")?.textContent).toMatch(
+      /Event 'Hotel' failed filter #0: .+/
+    );
     renderer.unload();
   });
 

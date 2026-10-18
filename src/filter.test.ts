@@ -62,6 +62,33 @@ describe("compileFilter", () => {
     expect(compileFilter("nonexistentFunction(title)")(event({}))).toBe(false);
   });
 
+  test("compares ISO dates as text", () => {
+    const filter = compileFilter(
+      'start >= "2021-11-01" and start < "2021-11-02"'
+    );
+    expect(filter(event({ start: "2021-11-01T12:00" }))).toBe(true);
+    expect(filter(event({ start: "2021-11-02T12:00" }))).toBe(false);
+  });
+
+  test("still compares numbers", () => {
+    expect(compileFilter("priority > 2")(event({ priority: 3 }))).toBe(true);
+    expect(compileFilter("priority > 2")(event({ priority: 1 }))).toBe(false);
+  });
+
+  test("does not compare text with a number", () => {
+    expect(compileFilter("title > 2")(event({ title: "x" }))).toBe(false);
+  });
+
+  test("matches a single tag by equality", () => {
+    const filter = compileFilter('tag == "hotel"');
+    expect(filter(event({ tag: "hotel" }))).toBe(true);
+    expect(filter(event({ tag: ["hotel"] }))).toBe(true);
+    expect(filter(event({ tag: ["hotel", "booked"] }))).toBe(false);
+    expect(compileFilter('tag != "hotel"')(event({ tag: "hotel" }))).toBe(
+      false
+    );
+  });
+
   test("throws on a syntax error", () => {
     expect(() => compileFilter("(((")).toThrow();
   });
