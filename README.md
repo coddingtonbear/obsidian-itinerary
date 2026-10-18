@@ -165,6 +165,12 @@ This library uses `filtrex` for expression evaluation; see their documentation t
 
 Any of an event's options can be used in an expression.  An option an event doesn't set is simply empty: `tag` is always treated as a list (so `"hotel" in tag` works whether an event has one tag, several, or none), `allDay` and `hidden` default to `false`, and anything else reads as empty.
 
+A few things worth knowing about the syntax:
+
+- `<`, `<=`, `>` and `>=` compare two numbers or two pieces of text; since dates are written as ISO text, `start >= "2021-11-01" and start < "2021-11-02"` picks out a single day's events.
+- `tag == "hotel"` matches an event whose *only* tag is `hotel`; use `"hotel" in tag` to match any event tagged `hotel`.
+- `not`, `and` and `or` need `true`/`false` values, so `not color` is an error for an event without a color.  With `debug: true`, the itinerary explains why each event was left out.
+
 See "Filtering events based upon tag" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
 
 ## Tips
