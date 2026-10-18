@@ -40,6 +40,14 @@ describe("compileFilter", () => {
     expect(filter(event({ tag: ["hotel"] }))).toBe(false);
   });
 
+  test("matches an event without tags on a negated tag filter", () => {
+    expect(compileFilter('"hotel" not in tag')(event({}))).toBe(true);
+  });
+
+  test("treats a missing property as empty", () => {
+    expect(compileFilter("not allDay")(event({}))).toBe(true);
+  });
+
   test("does not match an event without tags on a tag filter", () => {
     expect(compileFilter('"hotel" in tag')(event({}))).toBe(false);
   });

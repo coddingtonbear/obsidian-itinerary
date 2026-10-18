@@ -36,7 +36,7 @@
     "@fullcalendar/list": "~6.1.22",
     "@fullcalendar/luxon3": "~6.1.22",
     "@fullcalendar/timegrid": "~6.1.22",
-    "filtrex": "^2.2.3",
+    "filtrex": "^3.1.0",
     "luxon": "^3.7.2"
   }
 }
