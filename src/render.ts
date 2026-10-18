@@ -6,9 +6,9 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import luxonPlugin from "@fullcalendar/luxon3";
 
-import { compileExpression } from "filtrex";
 import { DateTime } from "luxon";
 
+import { EventFilter, compileFilter } from "./filter";
 import { EventSpec, ItinerarySpec } from "./types";
 import { getArrayForArrayOrObject } from "./util";
 
@@ -16,7 +16,7 @@ export class ItineraryRenderer extends MarkdownRenderChild {
   private messages: string[] = [];
   private loaded: boolean = false;
   private calendar: Calendar;
-  private compiledFilters: ((item: Record<string, any>) => any)[] = [];
+  private compiledFilters: EventFilter[] = [];
   private sources: Record<string, EventSpec[]> = {};
 
   constructor(
@@ -28,7 +28,7 @@ export class ItineraryRenderer extends MarkdownRenderChild {
     for (const [idx, filter] of getArrayForArrayOrObject(
       this.spec.filter
     ).entries()) {
-      this.compiledFilters.push(compileExpression(filter));
+      this.compiledFilters.push(compileFilter(filter));
       this.log(`Filter #${idx} '${filter}' compiled`);
     }
   }
@@ -64,7 +64,7 @@ export class ItineraryRenderer extends MarkdownRenderChild {
   /** Returns whether selected event matches all provided filter specs. */
   eventMatchesFilters(
     evt: EventSpec,
-    filters: ((item: Record<string, any>) => any)[]
+    filters: EventFilter[]
   ): boolean {
     for (const [idx, filter] of filters.entries()) {
       if (!filter(evt)) {
