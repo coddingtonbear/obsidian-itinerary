@@ -1,6 +1,7 @@
-import { CalendarOptions } from "@fullcalendar/core";
+import { CalendarOptions } from "fullcalendar";
 import { parseYaml } from "obsidian";
 
+import { TranslatedOptions, translateLegacyOptions } from "./compat";
 import { ItinerarySpec } from "./types";
 import { errorMessage, isRecord } from "./util";
 
@@ -77,8 +78,9 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
 }
 
 /** The FullCalendar options in an itinerary spec, without the options only
- * this plugin understands (which FullCalendar would warn about). */
-export function getCalendarOptions(spec: ItinerarySpec): CalendarOptions {
+ * this plugin understands (which FullCalendar would warn about), and with
+ * options written for FullCalendar 6 translated for FullCalendar 7. */
+export function getCalendarOptions(spec: ItinerarySpec): TranslatedOptions {
   const { source, filter, debug, ...calendarOptions } = spec;
-  return calendarOptions;
+  return translateLegacyOptions(calendarOptions);
 }

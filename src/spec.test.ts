@@ -83,13 +83,15 @@ describe("parseItinerarySpec", () => {
 
 describe("getCalendarOptions", () => {
   test("drops options FullCalendar doesn't know", () => {
-    expect(
-      getCalendarOptions({
-        source: ["[[Trip]]"],
-        filter: ["allDay"],
-        debug: true,
-        initialView: "listDay",
-      })
-    ).toEqual({ initialView: "listDay" });
+    const { options } = getCalendarOptions({
+      source: ["[[Trip]]"],
+      filter: ["allDay"],
+      debug: true,
+      initialView: "listDay",
+    });
+    expect(options).not.toHaveProperty("source");
+    expect(options).not.toHaveProperty("filter");
+    expect(options).not.toHaveProperty("debug");
+    expect(options.initialView).toBe("listDay");
   });
 });

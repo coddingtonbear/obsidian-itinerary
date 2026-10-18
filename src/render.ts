@@ -1,10 +1,10 @@
 import { MarkdownRenderChild } from "obsidian";
 
-import { Calendar } from "@fullcalendar/core";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import listPlugin from "@fullcalendar/list";
-import luxonPlugin from "@fullcalendar/luxon3";
+import { Calendar, CalendarOptions, EventInput } from "fullcalendar";
+import dayGridPlugin from "fullcalendar/daygrid";
+import listPlugin from "fullcalendar/list";
+import timeGridPlugin from "fullcalendar/timegrid";
+import classicTheme from "fullcalendar/themes/classic";
 
 import { EventFilter, compileFilter } from "./filter";
 import { describeEventTime } from "./format";
@@ -23,6 +23,8 @@ export class ItineraryRenderer
   private generation = 0;
   private readonly filters: EventFilter[];
   private readonly filterExpressions: string[];
+  private readonly calendarOptions: CalendarOptions;
+  private readonly optionNotes: string[];
 
   constructor(
     containerEl: HTMLElement,
@@ -35,7 +37,11 @@ export class ItineraryRenderer
     this.filters = this.filterExpressions.map((expression) =>
       compileFilter(expression)
     );
+    const { options, notes } = getCalendarOptions(spec);
+    this.calendarOptions = options;
+    this.optionNotes = notes;
   }
+
 
   onload(): void {
     const calendarEl = this.containerEl.createDiv({
@@ -44,16 +50,10 @@ export class ItineraryRenderer
     this.statusEl = this.containerEl.createDiv();
 
     this.calendar = new Calendar(calendarEl, {
-      plugins: [dayGridPlugin, timeGridPlugin, listPlugin, luxonPlugin],
-      ...getCalendarOptions(this.spec),
+      plugins: [classicTheme, dayGridPlugin, timeGridPlugin, listPlugin],
+      ...this.calendarOptions,
     });
     this.calendar.render();
-
-    // The calendar sizes itself when rendered, but a note pane can be
-    // resized (or the block first shown) later; keep it fitting its pane.
-    const observer = new ResizeObserver(() => this.calendar?.updateSize());
-    observer.observe(calendarEl);
-    this.register(() => observer.disconnect());
 
     this.register(this.store.subscribe(this));
     void this.refresh();
@@ -87,14 +87,17 @@ export class ItineraryRenderer
       return;
     }
 
-    const messages: string[] = this.filterExpressions.map(
-      (expression, idx) => `Filter #${idx} '${expression}' compiled`
-    );
+    const messages: string[] = [
+      ...this.optionNotes,
+      ...this.filterExpressions.map(
+        (expression, idx) => `Filter #${idx} '${expression}' compiled`
+      ),
+    ];
     const shown = events.filter((evt) => this.matchesFilters(evt, messages));
 
     calendar.batchRendering(() => {
       calendar.removeAllEventSources();
-      calendar.addEventSource(shown);
+      calendar.addEventSource(shown.map(toEventInput));
     });
 
     if (this.spec.debug) {
@@ -127,6 +130,18 @@ export class ItineraryRenderer
     this.statusEl.empty();
     renderErrorPre(this.statusEl, message, cls);
   }
+}
+
+/** The FullCalendar 7 input for an event. FullCalendar 7 replaced
+ * `backgroundColor`/`borderColor` with a single `color`, and `textColor`
+ * with `contrastColor`. */
+export function toEventInput(event: EventSpec): EventInput {
+  const { backgroundColor, borderColor, textColor, ...input } = event;
+  return {
+    ...input,
+    color: backgroundColor || borderColor,
+    contrastColor: textColor,
+  };
 }
 
 /** Renders an event's summary where its `itinerary-event` block appears. */

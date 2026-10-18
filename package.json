@@ -36,12 +36,9 @@
     "yaml": "^2.9.1"
   },
   "dependencies": {
-    "@fullcalendar/core": "~6.1.22",
-    "@fullcalendar/daygrid": "~6.1.22",
-    "@fullcalendar/list": "~6.1.22",
-    "@fullcalendar/luxon3": "~6.1.22",
-    "@fullcalendar/timegrid": "~6.1.22",
     "filtrex": "^3.1.0",
-    "luxon": "^3.7.2"
+    "fullcalendar": "~7.1.3",
+    "luxon": "^3.7.2",
+    "temporal-polyfill": "^1.0.6"
   }
 }

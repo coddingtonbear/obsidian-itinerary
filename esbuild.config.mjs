@@ -40,9 +40,24 @@ const buildOptions = {
   outfile: "main.js",
 };
 
+// FullCalendar's stylesheets and the plugin's own, as the single styles.css
+// Obsidian loads.
+const styleOptions = {
+  entryPoints: ["src/styles.css"],
+  bundle: true,
+  logLevel: "info",
+  outfile: "styles.css",
+};
+
 if (prod) {
-  esbuild.build(buildOptions).catch(() => process.exit(1));
+  await Promise.all([
+    esbuild.build(buildOptions),
+    esbuild.build(styleOptions),
+  ]).catch(() => process.exit(1));
 } else {
-  const ctx = await esbuild.context(buildOptions);
-  await ctx.watch();
+  const contexts = await Promise.all([
+    esbuild.context(buildOptions),
+    esbuild.context(styleOptions),
+  ]);
+  await Promise.all(contexts.map((ctx) => ctx.watch()));
 }

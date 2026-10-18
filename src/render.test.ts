@@ -1,22 +1,10 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 // @vitest-environment jsdom
 import { parseEventSpec } from "./extractor";
+import { parseItinerarySpec } from "./spec";
 import { ItineraryRenderer, renderEvent } from "./render";
 import { EventStore } from "./store";
 import { EventSpec, ItinerarySpec } from "./types";
-
-class FakeResizeObserver {
-  static instances: FakeResizeObserver[] = [];
-  disconnected = false;
-  constructor(readonly callback: ResizeObserverCallback) {
-    FakeResizeObserver.instances.push(this);
-  }
-  observe(): void {}
-  unobserve(): void {}
-  disconnect(): void {
-    this.disconnected = true;
-  }
-}
 
 function event(fields: Partial<EventSpec>): EventSpec {
   return {
@@ -82,15 +70,27 @@ describe("ItineraryRenderer", () => {
     initialDate: "2021-11-01",
   };
 
+  /** The list view's event rows. FullCalendar 7's class names are
+   * generated, so rows are found through their ARIA roles. */
+  function eventRows(): { time: string; title: string; color: string }[] {
+    return Array.from(
+      el.querySelectorAll('[role="list"][aria-label="Events"] > [role="listitem"]')
+    ).map((row) => {
+      const body = row.querySelector<HTMLElement>('[style*="--fc-event-color"]');
+      const [time, title] = Array.from(body?.lastElementChild?.children ?? []);
+      return {
+        time: time?.textContent ?? "",
+        title: title?.textContent ?? "",
+        color: body?.style.getPropertyValue("--fc-event-color") ?? "",
+      };
+    });
+  }
+
   function shownTitles(): string[] {
-    return Array.from(el.querySelectorAll(".fc-list-event-title")).map(
-      (title) => title.textContent ?? ""
-    );
+    return eventRows().map((row) => row.title);
   }
 
   beforeEach(() => {
-    FakeResizeObserver.instances = [];
-    window.ResizeObserver = FakeResizeObserver;
     contents = {
       "trip.md": [
         event({ title: "Hotel", start: "2021-11-01T15:00", tag: "hotel" }),
@@ -123,10 +123,12 @@ describe("ItineraryRenderer", () => {
     renderer.load();
     await settle();
 
-    const times = Array.from(el.querySelectorAll(".fc-list-event-time")).map(
-      (time) => time.textContent
-    );
-    expect(times).toEqual(["all-day", "all-day", "all-day", "all-day"]);
+    expect(eventRows().map((row) => row.time)).toEqual([
+      "All-day",
+      "All-day",
+      "All-day",
+      "All-day",
+    ]);
     renderer.unload();
   });
 
@@ -142,6 +144,38 @@ describe("ItineraryRenderer", () => {
 
     expect(el.querySelector(".itinerary-debug")?.textContent).toMatch(
       /Event 'Hotel' failed filter #0: .+/
+    );
+    renderer.unload();
+  });
+
+  test("draws events in their color", async () => {
+    contents["trip.md"] = [
+      parseEventSpec("title: Flight\nstart: 2021-11-03T09:00\ncolor: green"),
+    ];
+    const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
+    renderer.load();
+    await settle();
+
+    expect(eventRows().map((row) => row.color)).toEqual(["green"]);
+    renderer.unload();
+  });
+
+  test("notes translated FullCalendar 6 options in debug output", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      // Parsed from YAML, as FullCalendar 7's option types don't know it.
+      {
+        ...listSpec,
+        ...parseItinerarySpec("debug: true\nslotLabelFormat: h:mm"),
+      },
+      ["trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    expect(el.querySelector(".itinerary-debug")?.textContent).toContain(
+      "Option 'slotLabelFormat' is now called 'slotHeaderFormat'"
     );
     renderer.unload();
   });
@@ -204,8 +238,7 @@ describe("ItineraryRenderer", () => {
     await store.refresh("trip.md");
 
     expect(refresh).not.toHaveBeenCalled();
-    expect(FakeResizeObserver.instances[0].disconnected).toBe(true);
-    expect(el.querySelector(".fc-list-event-title")).toBeNull();
+    expect(eventRows()).toEqual([]);
   });
 
   test("shows an error when its events can't be loaded", async () => {
