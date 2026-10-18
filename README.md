@@ -4,7 +4,7 @@ Planning a vacation or need to otherwise see a set of events on a monthly, weekl
 
 ## Quickstart
 
-Imaging you have a document outlining what you want to do during an upcoming trip to Mexico; you could try to keep track of things in text like this:
+Imagine you have a document outlining what you want to do during an upcoming trip to Mexico; you could try to keep track of things in text like this:
 
 ~~~
 # Trip to Mexico
@@ -123,8 +123,8 @@ And as a reward for your effort, you can then render calendars for your various 
 
 You can specify the following options for displaying your itinerary:
 
-- `source`: The name of an obsidian source (or list of obsidian source) to gather data from; note that this must be surrounded in quotes (e.g. `"[[My Vacation Plans]]"`).  Defaults to events found in the same file the calendar is rendered in.  This field also accepts a path relative to your vault root instead of an obsian source name, but using an obsidian source name is recommended since such a name can be autocompleted via the editor.
-- `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which rows of the referenced CSV will be displayed. If unspecified, all events found in the selected sources will be included.
+- `source`: A link to the note (or a list of links to the notes) to gather events from, e.g. `"[[My Vacation Plans]]"`.  Links resolve exactly as they do elsewhere in Obsidian, so a note's name is usually enough even if it lives in a subfolder.  Defaults to events found in the same note the calendar is rendered in.  This field also accepts a path relative to your vault root (e.g. `Trips/Mexico.md`) instead of a link, but a link is recommended since the editor can autocomplete it.
+- `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which events will be displayed. If unspecified, all events found in the selected sources will be included.
 - `debug`: Will cause some debugging information to be printed below your rendered itinerary.
 
 In addition to the above, you can provide any options described here: https://fullcalendar.io/docs; particularly useful properties include:
@@ -149,7 +149,8 @@ You can specify the following options for events:
 
 - `title`: (Required) A name for your event.
 - `start`: (Required) An ISO timestamp representing your event's start time.
-- `end`: An ISO timestamp representing your event's end time.
+- `end`: An ISO timestamp representing your event's end time.  For all-day events, this date is *exclusive*: an event with `start: 2021-10-31` and `end: 2021-11-04` covers October 31st through November 3rd.
+- `timeZone`, `startTimeZone`, `endTimeZone`: The time zone your event's times were written in; see "Timezones" below.
 - `tag`: A single string tag or list of tags to associate with this event.  These are useful for specifically marking things like flights or hotel stays so you can generate calendars showing only one kind of event.
 - `hidden`: If `true`, this event will not be rendered individually in your notes where you've specified your event, and instead will appear only on relevant itineraries.  Defaults to `false`.
 
@@ -160,9 +161,11 @@ Additionally, you can provide any options described here:  https://fullcalendar.
 
 ### Expressions
 
-This library uses `filtrex` for expression evaluation; see their documentation to see more information about the expression syntax and what functions are available: https://github.com/m93a/filtrex#expressions.
+This library uses `filtrex` for expression evaluation; see their documentation to see more information about the expression syntax and what functions are available: https://github.com/cshaa/filtrex#expressions.
 
-See "Filtering displayed rows" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
+Any of an event's options can be used in an expression.  An option an event doesn't set is simply empty: `tag` is always treated as a list (so `"hotel" in tag` works whether an event has one tag, several, or none), `allDay` and `hidden` default to `false`, and anything else reads as empty.
+
+See "Filtering events based upon tag" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
 
 ## Tips
 
@@ -187,7 +190,7 @@ Try using `timeGridDay`, too!
 Imagine that you're going to be in some particular place for exactly four days; with the default `dayGrid` or `weekGrid` views, you'd have either not all of the relevant events displayed or you'd have many blank days shown.  You can instead render a particular number of days easily by using the `duration` option:
 
 ~~~
-```
+```itinerary
 initialDate: 2021-10-22
 initialView: dayGrid
 duration:
@@ -316,6 +319,21 @@ eventOrderStrict: true
 
 See [FullCalendar's docs](https://fullcalendar.io/docs/eventOrder) covering this for more details.
 
+## Development
+
+You'll need Node.js 22 (see `.tool-versions`).
+
+```
+npm ci
+npm run dev        # rebuild main.js on every change
+npm test           # unit tests
+npm run lint
+npm run typecheck
+npm run build      # production build
+```
+
+To try a build out, copy `main.js`, `manifest.json` and `styles.css` into `.obsidian/plugins/obsidian-itinerary/` in a test vault.
+
 ## Thanks
 
-This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give sombody thanks for the nice rendered calendars, they're the folks who deserve that.
+This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give somebody thanks for the nice rendered calendars, they're the folks who deserve that.
