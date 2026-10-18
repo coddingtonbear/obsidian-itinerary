@@ -7,7 +7,6 @@ import { getEventInformation } from "./extractor";
 
 import { getArrayForArrayOrObject } from "./util";
 
-import "./main.css";
 
 export default class Itinerary extends Plugin {
   /** Map of documents containing itineraries to pages their events

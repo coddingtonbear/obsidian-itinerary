@@ -4,7 +4,7 @@ import { Calendar } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
-import luxonPlugin from "@fullcalendar/luxon";
+import luxonPlugin from "@fullcalendar/luxon3";
 
 import { compileExpression } from "filtrex";
 import { DateTime } from "luxon";
