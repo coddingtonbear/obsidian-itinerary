@@ -43,6 +43,9 @@ export default defineConfig([
     rules: {
       // Tests run in Node.js via Jest, not a browser/Obsidian window context.
       "obsidianmd/prefer-window-timers": "off",
+      // Tests build detached elements; Obsidian's global createDiv() isn't
+      // available outside the app.
+      "obsidianmd/prefer-create-el": "off",
       // Jest legitimately passes unbound methods to expect() matchers.
       "@typescript-eslint/unbound-method": "off",
     },

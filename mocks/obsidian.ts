@@ -9,11 +9,15 @@ export function parseYaml(text: string): any {
 }
 
 export class Component {
+  private cleanups: (() => unknown)[] = [];
   load(): void {
     this.onload();
   }
   onload(): void {}
   unload(): void {
+    for (const cleanup of this.cleanups.splice(0)) {
+      cleanup();
+    }
     this.onunload();
   }
   onunload(): void {}
@@ -21,7 +25,9 @@ export class Component {
     component.load();
     return component;
   }
-  register(cb: () => unknown): void {}
+  register(cb: () => unknown): void {
+    this.cleanups.push(cb);
+  }
   registerEvent(eventRef: unknown): void {}
 }
 
@@ -41,4 +47,51 @@ export abstract class TAbstractFile {
 export class TFile extends TAbstractFile {
   basename = "";
   extension = "md";
+}
+
+// Obsidian adds DOM helpers to every element; tests running in a jsdom
+// environment get the subset this plugin uses.
+type ElementInfo = { cls?: string | string[]; text?: string };
+
+function installDomHelpers(proto: HTMLElement): void {
+  proto.createEl = function <K extends keyof HTMLElementTagNameMap>(
+    this: HTMLElement,
+    tag: K,
+    o?: ElementInfo | string
+  ): HTMLElementTagNameMap[K] {
+    const el = this.ownerDocument.createElement(tag);
+    const info: ElementInfo = typeof o === "string" ? { cls: o } : o ?? {};
+    if (info.cls !== undefined) {
+      const classes = Array.isArray(info.cls) ? info.cls : info.cls.split(" ");
+      el.classList.add(...classes.filter((c) => c.length > 0));
+    }
+    if (info.text !== undefined) {
+      el.textContent = info.text;
+    }
+    this.appendChild(el);
+    return el;
+  } as HTMLElement["createEl"];
+  proto.createDiv = function (
+    this: HTMLElement,
+    o?: ElementInfo | string
+  ): HTMLDivElement {
+    return this.createEl("div", o);
+  };
+  proto.empty = function (this: HTMLElement): void {
+    while (this.firstChild) {
+      this.removeChild(this.firstChild);
+    }
+  };
+  proto.setCssProps = function (
+    this: HTMLElement,
+    props: Record<string, string>
+  ): void {
+    for (const [name, value] of Object.entries(props)) {
+      this.style.setProperty(name, value);
+    }
+  };
+}
+
+if (typeof HTMLElement !== "undefined") {
+  installDomHelpers(HTMLElement.prototype);
 }

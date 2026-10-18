@@ -28,6 +28,7 @@
     "eslint-plugin-obsidianmd": "^0.4.2",
     "globals": "^17.13.0",
     "jest": "^30",
+    "jest-environment-jsdom": "^30.5.2",
     "obsidian": "^1.13.1",
     "ts-jest": "^29.4.15",
     "tslib": "^2.8.1",
