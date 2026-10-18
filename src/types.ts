@@ -1,4 +1,4 @@
-import { EventInput, CalendarOptions } from "@fullcalendar/core";
+import { CalendarOptions, EventInput } from "@fullcalendar/core";
 
 export type DocumentPath = string;
 

@@ -4,7 +4,6 @@
 import { parse } from "yaml";
 
 // Mirrors the real declaration, which returns `any`.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseYaml(text: string): any {
   return parse(text);
 }
