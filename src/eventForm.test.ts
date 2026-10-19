@@ -535,6 +535,20 @@ describe("time zones for each end", () => {
     ).toEqual(['"Moon/Tranquility" isn\'t a time zone Obsidian knows.']);
   });
 
+  test("compares clock times when both ends share a zone", () => {
+    // 02:30 doesn't exist that day in New York; it's still before 03:10.
+    expect(
+      validateEventForm(
+        form({
+          title: "A",
+          start: "2021-03-14T02:30",
+          end: "2021-03-14T03:10",
+          timeZone: "America/New_York",
+        })
+      )
+    ).toEqual([]);
+  });
+
   test("ignores the end's zone when there is no end", () => {
     const values = form({
       title: "A",

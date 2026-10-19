@@ -229,6 +229,10 @@ function compareTimes(values: EventFormValues): number {
   if (values.allDay) {
     return Temporal.PlainDate.compare(values.end, values.start);
   }
+  if (values.startTimeZone.trim() === values.endTimeZone.trim()) {
+    // One zone: the clock times say it, even in a daylight-saving gap.
+    return Temporal.PlainDateTime.compare(values.end, values.start);
+  }
   const start = toInstant(values.start, values.startTimeZone);
   const end = toInstant(values.end, values.endTimeZone);
   if (start === null || end === null) {
