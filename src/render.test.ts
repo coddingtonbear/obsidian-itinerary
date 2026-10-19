@@ -181,6 +181,20 @@ describe("ItineraryRenderer", () => {
     renderer.unload();
   });
 
+  test("orders a day's events by their order", async () => {
+    contents["trip.md"] = [
+      parseEventSpec("title: A\nstart: 2021-11-03\norder: 2"),
+      parseEventSpec("title: B\nstart: 2021-11-03"),
+      parseEventSpec("title: C\nstart: 2021-11-03\norder: 1"),
+    ];
+    const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
+    renderer.load();
+    await settle();
+
+    expect(shownTitles()).toEqual(["C", "A", "B"]);
+    renderer.unload();
+  });
+
   test("passes per-event classNames on as className", () => {
     expect(
       toEventInput(

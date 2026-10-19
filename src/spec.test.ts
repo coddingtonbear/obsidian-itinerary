@@ -1,4 +1,5 @@
 import { describe, test, expect } from "vitest";
+import { DefaultEventOrder } from "./order";
 import { getCalendarOptions, normalizeSources, parseItinerarySpec } from "./spec";
 
 describe("normalizeSources", () => {
@@ -102,5 +103,20 @@ describe("getCalendarOptions", () => {
     expect(options).not.toHaveProperty("filter");
     expect(options).not.toHaveProperty("debug");
     expect(options.initialView).toBe("listDay");
+  });
+
+  test("orders events by order, strictly, by default", () => {
+    const { options } = getCalendarOptions({});
+    expect(options.eventOrder).toBe(DefaultEventOrder);
+    expect(options.eventOrderStrict).toBe(true);
+  });
+
+  test("keeps an itinerary's own eventOrder and eventOrderStrict", () => {
+    const { options } = getCalendarOptions({
+      eventOrder: "start,color",
+      eventOrderStrict: false,
+    });
+    expect(options.eventOrder).toBe("start,color");
+    expect(options.eventOrderStrict).toBe(false);
   });
 });

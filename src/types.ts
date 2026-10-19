@@ -17,6 +17,8 @@ export interface EventSpec extends EventInput {
   end?: string;
   endTimeZone?: string;
   hidden?: boolean;
+  /** Sorts events within a day: lowest first, unordered events last. */
+  order?: number;
   title: string;
   backgroundColor?: string;
   borderColor?: string;

@@ -2,6 +2,7 @@ import { CalendarOptions } from "fullcalendar";
 import { parseYaml } from "obsidian";
 
 import { TranslatedOptions, translateLegacyOptions } from "./compat";
+import { DefaultEventOrder } from "./order";
 import { ItinerarySpec } from "./types";
 import { errorMessage, isRecord, readBooleanValue } from "./util";
 
@@ -82,8 +83,23 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
 
 /** The FullCalendar options in an itinerary spec, without the options only
  * this plugin understands (which FullCalendar would warn about), and with
- * options written for FullCalendar 5 and 6 translated for FullCalendar 7. */
+ * options written for FullCalendar 5 and 6 translated for FullCalendar 7.
+ *
+ * Events are ordered by their `order` and drawn strictly in that order,
+ * unless the itinerary sets `eventOrder` or `eventOrderStrict` itself, in
+ * which case its own setting wins. */
 export function getCalendarOptions(spec: ItinerarySpec): TranslatedOptions {
   const { source, filter, debug, ...calendarOptions } = spec;
-  return translateLegacyOptions(calendarOptions);
+  const translated = translateLegacyOptions(calendarOptions);
+  const options: CalendarOptions = { ...translated.options };
+  if (options.eventOrder === undefined) {
+    // FullCalendar's parser takes a list mixing field names and compare
+    // functions (`parseFieldSpecs`), though its types only allow one kind.
+    options.eventOrder =
+      DefaultEventOrder as unknown as CalendarOptions["eventOrder"];
+  }
+  if (options.eventOrderStrict === undefined) {
+    options.eventOrderStrict = true;
+  }
+  return { options, notes: translated.notes };
 }

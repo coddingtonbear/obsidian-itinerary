@@ -312,6 +312,20 @@ describe("parseEventSpec validation", () => {
     expect(() => parseEventSpec("hidden: sometimes")).toThrow(/hidden/);
   });
 
+  test("reads order as a number", () => {
+    expect(parseEventSpec("order: 2").order).toBe(2);
+    expect(parseEventSpec("order: -1.5").order).toBe(-1.5);
+    expect(parseEventSpec('order: "3"').order).toBe(3);
+    expect(parseEventSpec("title: X")).not.toHaveProperty("order");
+  });
+
+  test("rejects an order that isn't a number", () => {
+    expect(() => parseEventSpec("order: first")).toThrow(
+      /"order" must be a number/
+    );
+    expect(() => parseEventSpec("order: [1]")).toThrow(/order/);
+  });
+
   test("accepts quoted true and false", () => {
     expect(parseEventSpec('hidden: "true"').hidden).toBe(true);
     expect(parseEventSpec('allDay: "False"').allDay).toBe(false);

@@ -153,6 +153,7 @@ You can specify the following options for events:
 - `timeZone`, `startTimeZone`, `endTimeZone`: The time zone your event's times were written in; see "Timezones" below.
 - `tag`: A single string tag or list of tags to associate with this event.  These are useful for specifically marking things like flights or hotel stays so you can generate calendars showing only one kind of event.
 - `hidden`: If `true`, this event will not be rendered individually in your notes where you've specified your event, and instead will appear only on relevant itineraries.  Defaults to `false`.
+- `order`: A number deciding where this event is drawn among the other events on the same day: lowest first, with events that have no `order` last.  See "Ordering calendar events" below.
 
 Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
 
@@ -302,11 +303,24 @@ Perhaps you're printing some types of events on a monthly calendar:
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/eventOrderBad.png)
 
-and would rather that the events be displayed in a consistent order based upon the color you set for them:
+and would rather that the events be displayed in a consistent order:
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/eventOrderGood.png)
 
-You can set a sort order for your calendar using the `eventOrder` option:
+The simplest way is to give your events an `order`.  Within a day, events are drawn lowest `order` first; events without an `order` come after all the ones that have one (so a negative `order` puts an event ahead of everything else), and events with the same `order` (or none) fall back to the calendar's usual ordering: by start time, then longest first, then all-day events, then by title.
+
+~~~
+```itinerary-event
+title: Hotel Nikko
+start: 2021-11-01
+end: 2021-11-04
+order: 1
+```
+~~~
+
+Itineraries always follow this order exactly, even where the calendar could fit events more compactly by moving later ones up into gaps, so the same kinds of events stay in the same place day to day.  Rather than setting `order` on every event, you can set it for a whole kind of event at once with an event rule; see "Event rules" below.
+
+If you'd rather sort by something else, set the itinerary's `eventOrder` option, which replaces the ordering above (including `order`, unless you list it) for that itinerary:
 
 ~~~
 ```itinerary
@@ -314,14 +328,16 @@ eventOrder: start,color
 ```
 ~~~
 
-This will suggest to the calendar that you'd like your events ordered first by their start time, and secondarily by their color.  The calendar will ignore this suggestion if it can arrange your calendar more compactly by ignoring this suggestion, though, but you can force it to always use your suggested ordering by using the `eventOrderStrict` option:
+This will suggest to the calendar that you'd like your events ordered first by their start time, and secondarily by their color.  An itinerary with its own `eventOrder` still follows it strictly, but you can let the calendar ignore your ordering where it can arrange events more compactly by setting `eventOrderStrict: false`; an itinerary that sets `eventOrderStrict` itself always gets its own setting:
 
 ~~~
 ```itinerary
 eventOrder: start,color
-eventOrderStrict: true
+eventOrderStrict: false
 ```
 ~~~
+
+The calendar compares `order` like any other field you name in `eventOrder` (e.g. `eventOrder: order,start`), except that it treats an `order` of `0` the same as no `order` at all.
 
 See [FullCalendar's docs](https://fullcalendar.io/docs/eventOrder) covering this for more details.
 
