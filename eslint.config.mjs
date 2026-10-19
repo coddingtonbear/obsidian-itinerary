@@ -41,6 +41,8 @@ export default defineConfig([
       globals: globals.node,
     },
     rules: {
+      // Tests run in Node.js, where its built-in modules are available.
+      "obsidianmd/no-nodejs-modules": "off",
       // Tests run in Node.js via Vitest, not a browser/Obsidian window context.
       "obsidianmd/prefer-window-timers": "off",
       // Tests build detached elements; Obsidian's global createDiv() isn't
