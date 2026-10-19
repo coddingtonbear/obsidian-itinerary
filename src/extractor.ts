@@ -90,7 +90,9 @@ function readTags(
   return readString(spec, "tag");
 }
 
-const DateOnlyPattern = /^\d{4}(?:-\d{2}-\d{2}|\d{4})$/;
+/** A date without a time, in any of the forms FullCalendar reads as one
+ * (`2021-11-01`, `20211101`, and the mixed `2021-1101` / `202111-01`). */
+const DateOnlyPattern = /^\d{4}-?\d{2}-?\d{2}$/;
 
 /** A date with a zone annotation but no time, e.g. `2021-11-01[Europe/Paris]`. */
 const AnnotatedDatePattern = /^(\d{4}-\d{2}-\d{2})\[[^\]]*\]$/;
@@ -192,8 +194,14 @@ function toCalendarTime(field: string, time: string): string {
 function toCalendarDate(field: string, time: string): string {
   if (isDateOnly(time)) {
     // Written in full, so a compact `20211101` compares as text in date
-    // order with the dates filters are written with.
-    return Temporal.PlainDate.from(time.trim()).toString();
+    // order with the dates filters are written with. An impossible date
+    // (`2021-02-30`) is passed on as written, for FullCalendar to roll
+    // over as it always has.
+    try {
+      return Temporal.PlainDate.from(time.trim().replace(/-/g, "")).toString();
+    } catch {
+      return time;
+    }
   }
   try {
     // Accepts offsets and bracketed zones, and keeps the date as written.
