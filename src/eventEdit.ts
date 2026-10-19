@@ -30,8 +30,10 @@ export interface EventEdit {
    * `timeZone`, which a filter can tell apart. Null when the form's zones
    * came from somewhere else: a time's own offset or zone. */
   zoneFields: Record<string, unknown> | null;
-  /** The zones the form started with, to tell whether they changed. */
-  readZones: { start: string; end: string };
+  /** The zones the form started with, and whether there was an end, to
+   * tell whether they changed: a block's `endTimeZone` means nothing
+   * without an end, while the form's end zone does once one is added. */
+  readZones: { start: string; end: string; hasEnd: boolean };
 }
 
 const ZoneFields = ["timeZone", "startTimeZone", "endTimeZone"];
@@ -117,7 +119,11 @@ export function readEventForEdit(source: string): EventEdit {
     kept,
     saidAllDay: saidAllDay !== undefined,
     zoneFields: zonesFromFields ? zoneFields : null,
-    readZones: { start: values.startTimeZone, end: values.endTimeZone },
+    readZones: {
+      start: values.startTimeZone,
+      end: values.endTimeZone,
+      hasEnd: values.end !== "",
+    },
   };
 }
 
@@ -137,7 +143,8 @@ export function serializeEditedEvent(edit: EventEdit): string {
   const keepZones =
     zoneFields !== null &&
     values.startTimeZone === readZones.start &&
-    values.endTimeZone === readZones.end;
+    values.endTimeZone === readZones.end &&
+    (values.end !== "") === readZones.hasEnd;
   const lines = serializeEventForm(
     keepZones ? { ...values, startTimeZone: "", endTimeZone: "" } : values
   ).split("\n");
@@ -146,7 +153,10 @@ export function serializeEditedEvent(edit: EventEdit): string {
     lines.splice(1, 0, "allDay: false");
   }
   if (keepZones && Object.keys(zoneFields).length > 0) {
-    lines.push(stringifyYaml(zoneFields).trimEnd());
+    // Where the form writes its zones: after the times.
+    const times = lines.findIndex((line) => line.startsWith("start:"));
+    const at = lines[times + 1]?.startsWith("end:") ? times + 2 : times + 1;
+    lines.splice(at, 0, stringifyYaml(zoneFields).trimEnd());
   }
   if (Object.keys(edit.kept).length > 0) {
     lines.push(stringifyYaml(edit.kept).trimEnd());

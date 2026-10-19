@@ -240,6 +240,29 @@ describe("saving an event unchanged", () => {
     );
   });
 
+  test("writes kept zone fields after the times, as the form does", () => {
+    expect(
+      saveUnchanged("title: A\nstart: 2021-11-01\ntimeZone: Europe/Paris\ncolor: red\ntag: x")
+    ).toBe("title: A\nallDay: true\nstart: 2021-11-01\ntimeZone: Europe/Paris\ncolor: red\ntag:\n- x");
+  });
+
+  test("writes the form's zones once an end is added or removed", () => {
+    const noEnd = readEventForEdit(
+      "title: A\nstart: 2021-11-01T09:00\ntimeZone: Europe/Paris\nendTimeZone: Asia/Tokyo"
+    );
+    expect(noEnd.values.endTimeZone).toBe("Europe/Paris");
+    expect(
+      serializeEditedEvent({ ...noEnd, values: { ...noEnd.values, end: "2021-11-01T10:00" } })
+    ).toBe("title: A\nstart: 2021-11-01T09:00\nend: 2021-11-01T10:00\ntimeZone: Europe/Paris");
+
+    const withEnd = readEventForEdit(
+      "title: A\nstart: 2021-11-01T09:00\nend: 2021-11-01T20:00\nstartTimeZone: Europe/Paris\nendTimeZone: Asia/Tokyo"
+    );
+    expect(
+      serializeEditedEvent({ ...withEnd, values: { ...withEnd.values, end: "" } })
+    ).toBe("title: A\nstart: 2021-11-01T09:00\ntimeZone: Europe/Paris");
+  });
+
   test("keeps an all-day event's zone when it's changed to a timed one", () => {
     const edit = readEventForEdit("title: A\nstart: 2021-11-01\ntimeZone: Europe/Paris");
     expect(
