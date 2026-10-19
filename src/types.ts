@@ -6,6 +6,8 @@ export interface ItinerarySpec extends CalendarOptions {
   source?: string | string[];
   filter?: string | string[];
   debug?: boolean;
+  /** Whether the vault's event rules apply to this itinerary's events. */
+  rules?: boolean;
 }
 
 // See https://fullcalendar.io/docs/event-parsing for details

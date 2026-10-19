@@ -1,11 +1,16 @@
 // A minimal stand-in for the parts of the `obsidian` package this plugin
 // uses. The real package ships only type declarations; its runtime is
 // provided by the Obsidian app, so unit tests need this replacement.
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 
 // Mirrors the real declaration, which returns `any`.
 export function parseYaml(text: string): any {
   return parse(text);
+}
+
+// Mirrors the real declaration, which takes `any`.
+export function stringifyYaml(obj: any): string {
+  return stringify(obj);
 }
 
 export class Component {

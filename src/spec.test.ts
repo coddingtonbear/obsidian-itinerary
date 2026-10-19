@@ -39,6 +39,7 @@ describe("parseItinerarySpec", () => {
       source: [],
       filter: [],
       debug: false,
+      rules: true,
     });
   });
 
@@ -48,6 +49,7 @@ describe("parseItinerarySpec", () => {
         'source: "[[Trip]]"',
         "filter: allDay",
         "debug: true",
+        "rules: false",
         "initialDate: 2021-11-01",
         "initialView: listDay",
       ].join("\n")
@@ -56,6 +58,7 @@ describe("parseItinerarySpec", () => {
       source: ["[[Trip]]"],
       filter: ["allDay"],
       debug: true,
+      rules: false,
       initialDate: "2021-11-01",
       initialView: "listDay",
     });
@@ -89,6 +92,12 @@ describe("parseItinerarySpec", () => {
   test("rejects a non-boolean debug", () => {
     expect(() => parseItinerarySpec("debug: often")).toThrow(/debug/);
   });
+
+  test("rejects a non-boolean rules", () => {
+    expect(() => parseItinerarySpec("rules: some")).toThrow(
+      /"rules" must be true or false/
+    );
+  });
 });
 
 describe("getCalendarOptions", () => {
@@ -97,8 +106,10 @@ describe("getCalendarOptions", () => {
       source: ["[[Trip]]"],
       filter: ["allDay"],
       debug: true,
+      rules: false,
       initialView: "listDay",
     });
+    expect(options).not.toHaveProperty("rules");
     expect(options).not.toHaveProperty("source");
     expect(options).not.toHaveProperty("filter");
     expect(options).not.toHaveProperty("debug");

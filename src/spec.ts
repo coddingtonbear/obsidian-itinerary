@@ -64,12 +64,7 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
     );
   }
 
-  const { source, filter, debug, ...calendarOptions } = spec;
-  const debugFlag =
-    debug === undefined || debug === null ? false : readBooleanValue(debug);
-  if (debugFlag === null) {
-    throw new Error('Itinerary option "debug" must be true or false.');
-  }
+  const { source, filter, debug, rules, ...calendarOptions } = spec;
 
   return {
     // Everything else is passed through to FullCalendar, which validates
@@ -77,8 +72,18 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
     ...(calendarOptions as CalendarOptions),
     source: normalizeSources(source),
     filter: normalizeFilters(filter),
-    debug: debugFlag,
+    debug: readFlag("debug", debug, false),
+    rules: readFlag("rules", rules, true),
   };
+}
+
+function readFlag(name: string, value: unknown, fallback: boolean): boolean {
+  const flag =
+    value === undefined || value === null ? fallback : readBooleanValue(value);
+  if (flag === null) {
+    throw new Error(`Itinerary option "${name}" must be true or false.`);
+  }
+  return flag;
 }
 
 /** The FullCalendar options in an itinerary spec, without the options only
@@ -89,7 +94,7 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
  * unless the itinerary sets `eventOrder` or `eventOrderStrict` itself, in
  * which case its own setting wins. */
 export function getCalendarOptions(spec: ItinerarySpec): TranslatedOptions {
-  const { source, filter, debug, ...calendarOptions } = spec;
+  const { source, filter, debug, rules, ...calendarOptions } = spec;
   const translated = translateLegacyOptions(calendarOptions);
   const options: CalendarOptions = { ...translated.options };
   if (options.eventOrder === undefined) {

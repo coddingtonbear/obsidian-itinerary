@@ -1,17 +1,30 @@
 import { MarkdownPostProcessorContext, Plugin, TFile } from "obsidian";
 
 import { getEventInformation, parseEventSpec } from "./extractor";
-import { ItineraryRenderer, renderErrorPre, renderEvent } from "./render";
+import {
+  EventSummaryRenderer,
+  ItineraryRenderer,
+  renderErrorPre,
+} from "./render";
+import { EventRule, RuleBook, normalizeRules } from "./rules";
+import { ItinerarySettingTab, RuleSettingsHost } from "./settings";
 import { SourceLookup, resolveSourcePath } from "./sources";
 import { parseItinerarySpec } from "./spec";
 import { EventStore } from "./store";
 import { DocumentPath, EventSpec } from "./types";
-import { errorMessage, getArrayForArrayOrObject } from "./util";
+import { errorMessage, getArrayForArrayOrObject, isRecord } from "./util";
 
-export default class Itinerary extends Plugin {
+export default class Itinerary extends Plugin implements RuleSettingsHost {
   private store = new EventStore((path) => this.readEvents(path));
+  private ruleBook = new RuleBook();
+  rules: EventRule[] = [];
 
-  onload(): void {
+  async onload(): Promise<void> {
+    const data: unknown = await this.loadData();
+    this.rules = normalizeRules(isRecord(data) ? data.rules : undefined);
+    this.ruleBook.setRules(this.rules);
+    this.addSettingTab(new ItinerarySettingTab(this.app, this));
+
     // Keep rendered itineraries current as the notes they draw from change.
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
@@ -50,9 +63,15 @@ export default class Itinerary extends Plugin {
     this.registerMarkdownCodeBlockProcessor("itinerary", (source, el, ctx) =>
       this.renderItinerary(source, el, ctx)
     );
-    this.registerMarkdownCodeBlockProcessor("itinerary-event", (source, el) =>
-      this.renderEvent(source, el)
+    this.registerMarkdownCodeBlockProcessor(
+      "itinerary-event",
+      (source, el, ctx) => this.renderEvent(source, el, ctx)
     );
+  }
+
+  async saveRules(): Promise<void> {
+    this.ruleBook.setRules(this.rules);
+    await this.saveData({ rules: this.rules });
   }
 
   private async readEvents(path: DocumentPath): Promise<EventSpec[]> {
@@ -96,7 +115,8 @@ export default class Itinerary extends Plugin {
           spec,
           sourcePaths,
           this.store,
-          (path) => this.app.vault.getFileByPath(path) !== null
+          (path) => this.app.vault.getFileByPath(path) !== null,
+          this.ruleBook
         )
       );
     } catch (e) {
@@ -104,9 +124,15 @@ export default class Itinerary extends Plugin {
     }
   }
 
-  private renderEvent(source: string, el: HTMLElement): void {
+  private renderEvent(
+    source: string,
+    el: HTMLElement,
+    ctx: MarkdownPostProcessorContext
+  ): void {
     try {
-      renderEvent(el, parseEventSpec(source));
+      ctx.addChild(
+        new EventSummaryRenderer(el, parseEventSpec(source), this.ruleBook)
+      );
     } catch (e) {
       renderErrorPre(el, errorMessage(e));
     }
