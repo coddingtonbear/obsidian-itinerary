@@ -20,6 +20,8 @@
 | `src/eventForm.ts` | Validates the "Insert event" form's values and writes them as an `itinerary-event` block; tag and time zone suggestions. |
 | `src/eventModal.ts` | The "Insert event" form itself (an Obsidian `Modal`), also used to edit an event. Obsidian glue only. |
 | `src/eventEdit.ts` | Reads an existing `itinerary-event` block into the form's values (keeping the fields the form doesn't show) and rewrites the block in its note. |
+| `src/completion.ts` | Works out what to suggest at the cursor inside an `itinerary` or `itinerary-event` block: field names, and values for some fields. |
+| `src/suggest.ts` | Connects completion.ts to Obsidian's editor (`EditorSuggest`). Obsidian glue only. |
 | `src/styles.css` | Plugin styles. esbuild bundles it with FullCalendar's stylesheets into `styles.css` (build output, not committed), mapping FullCalendar's theme variables onto Obsidian's. |
 | `mocks/obsidian.ts` | Runtime stand-in for the `obsidian` package in unit tests (Vitest). |
 

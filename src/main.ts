@@ -27,6 +27,7 @@ import { EventRule, RuleBook, normalizeRules } from "./rules";
 import { ItinerarySettingTab, RuleSettingsHost } from "./settings";
 import { SourceLookup, resolveSourcePath } from "./sources";
 import { parseItinerarySpec } from "./spec";
+import { BlockSuggest } from "./suggest";
 import { EventStore } from "./store";
 import { DocumentPath, EventSpec } from "./types";
 import { errorMessage, getArrayForArrayOrObject, isRecord } from "./util";
@@ -97,6 +98,8 @@ export default class Itinerary extends Plugin implements RuleSettingsHost {
         }).open();
       },
     });
+
+    this.registerEditorSuggest(new BlockSuggest(this.app));
 
     // Loaded last, so blocks render even if the settings can't be read;
     // everything drawn so far redraws once the rules arrive.
