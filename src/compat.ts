@@ -25,6 +25,19 @@ const RenamedOptions: Record<string, string> = {
   eventTextColor: "eventContrastColor",
   customButtons: "buttons",
   weekText: "weekTextShort",
+  allDayContent: "allDayHeaderContent",
+  slotLabelContent: "slotHeaderContent",
+  weekNumberContent: "weekNumberHeaderContent",
+  dayCellContent: "dayCellTopContent",
+};
+
+/** The views whose switching button FullCalendar 5 and 6 labelled with
+ * `buttonText[unit]`. FullCalendar 7 reads `buttons[view].text` instead. */
+const ViewsByButtonTextUnit: Record<string, string[]> = {
+  month: ["dayGridMonth"],
+  week: ["dayGridWeek", "timeGridWeek"],
+  day: ["dayGridDay", "timeGridDay"],
+  list: ["listDay", "listWeek", "listMonth", "listYear"],
 };
 
 /** Options from FullCalendar 5 and 6 that FullCalendar 7 removed outright. */
@@ -59,6 +72,29 @@ function mergeIntoButtons(
   for (const [name, value] of Object.entries(values)) {
     const existing = buttons[name];
     buttons[name] = { ...(isRecord(existing) ? existing : {}), [field]: value };
+  }
+  options.buttons = buttons;
+}
+
+/** Gives each view button the text `buttonText` set for its unit, unless
+ * a view-specific text is set already. */
+function labelViewButtons(
+  options: Record<string, unknown>,
+  buttonText: Record<string, unknown>
+): void {
+  const buttons: Record<string, unknown> = isRecord(options.buttons)
+    ? { ...options.buttons }
+    : {};
+  for (const [unit, views] of Object.entries(ViewsByButtonTextUnit)) {
+    if (!(unit in buttonText)) {
+      continue;
+    }
+    for (const view of views) {
+      const existing = isRecord(buttons[view]) ? buttons[view] : {};
+      if (existing.text === undefined) {
+        buttons[view] = { ...existing, text: buttonText[unit] };
+      }
+    }
   }
   options.buttons = buttons;
 }
@@ -127,6 +163,9 @@ export function translateLegacyOptions(
     delete options[legacy];
     if (isRecord(values)) {
       mergeIntoButtons(options, values, field);
+      if (legacy === "buttonText") {
+        labelViewButtons(options, values);
+      }
       notes.push(`Option '${legacy}' is now part of 'buttons'; used it as that.`);
     }
   }

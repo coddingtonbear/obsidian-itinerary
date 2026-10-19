@@ -15,10 +15,13 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Reads a YAML value as a boolean, accepting quoted true/false and
- * yes/no as well; returns null for anything else. */
+ * yes/no, and 1/0, as well; returns null for anything else. */
 export function readBooleanValue(value: unknown): boolean | null {
   if (typeof value === "boolean") {
     return value;
+  }
+  if (value === 1 || value === 0) {
+    return value === 1;
   }
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();

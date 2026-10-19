@@ -243,6 +243,33 @@ describe("parseEventSpec validation", () => {
     expect(evt).not.toHaveProperty("textColor");
   });
 
+  test("writes a time with a non-ISO calendar annotation in ISO form", () => {
+    expect(
+      parseEventSpec('start: "2021-11-01T12:00[u-ca=gregory]"').start
+    ).toBe("2021-11-01T12:00:00");
+  });
+
+  test("reads 1 and 0 as true and false", () => {
+    expect(parseEventSpec("hidden: 1").hidden).toBe(true);
+    expect(parseEventSpec("allDay: 0\nstart: 2021-11-01T10:00").allDay).toBe(
+      false
+    );
+  });
+
+  test("reads a number as milliseconds since 1970", () => {
+    expect(parseEventSpec("start: 1635782400000").start).toBe(
+      "2021-11-01T16:00:00Z"
+    );
+  });
+
+  test("dates an all-day UTC time in the event's timeZone", () => {
+    expect(
+      parseEventSpec(
+        'allDay: true\nstart: "2021-11-02T01:00Z"\ntimeZone: America/New_York'
+      ).start
+    ).toBe("2021-11-01");
+  });
+
   test("accepts a calendar annotation in brackets", () => {
     expect(parseEventSpec('start: "2021-11-01T12:00[u-ca=iso8601]"').start).toBe(
       "2021-11-01T12:00:00"

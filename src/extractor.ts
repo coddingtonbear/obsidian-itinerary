@@ -28,6 +28,19 @@ export function getEventInformation(fileData: string): EventSpec[] {
   return events;
 }
 
+/** Reads `start` or `end`: text, or a number of milliseconds since 1970,
+ * which FullCalendar accepted in version 1. */
+function readTime(
+  spec: Record<string, unknown>,
+  field: string
+): string | undefined {
+  const value = spec[field];
+  if (typeof value === "number") {
+    return Temporal.Instant.fromEpochMilliseconds(value).toString();
+  }
+  return readString(spec, field);
+}
+
 function readString(
   spec: Record<string, unknown>,
   field: string
@@ -152,7 +165,10 @@ function toCalendarTime(field: string, time: string): string {
     return respelled;
   }
   try {
-    return Temporal.ZonedDateTime.from(time).toString({ timeZoneName: "never" });
+    return Temporal.ZonedDateTime.from(time).toString({
+      timeZoneName: "never",
+      calendarName: "never",
+    });
   } catch {
     // Names no zone.
   }
@@ -162,7 +178,9 @@ function toCalendarTime(field: string, time: string): string {
   }
   rejectUnknownZone(field, time);
   try {
-    return Temporal.PlainDateTime.from(time).toString();
+    return Temporal.PlainDateTime.from(time).toString({
+      calendarName: "never",
+    });
   } catch {
     return time;
   }
@@ -171,19 +189,29 @@ function toCalendarTime(field: string, time: string): string {
 /** The date an all-day event's time was written on. FullCalendar would
  * convert a time with an offset into the calendar's zone before taking its
  * date, which can move it a day; an all-day event means the date written. */
-function toCalendarDate(field: string, time: string): string {
+function toCalendarDate(
+  field: string,
+  time: string,
+  zone: string | undefined
+): string {
   if (isDateOnly(time)) {
     return time;
   }
   try {
     // Accepts offsets and bracketed zones, and keeps the date as written.
-    return Temporal.PlainDate.from(respell(time)).toString();
+    return Temporal.PlainDate.from(respell(time)).toString({
+      calendarName: "never",
+    });
   } catch {
     // `Z` times, or forms only toCalendarTime can read.
   }
   const instant = readInstant(time);
   if (instant) {
-    return instant.toZonedDateTimeISO("UTC").toPlainDate().toString();
+    // A `Z` time names no local date; take it in the event's zone.
+    return instant
+      .toZonedDateTimeISO(zone ?? "UTC")
+      .toPlainDate()
+      .toString();
   }
   return toCalendarTime(field, time);
 }
@@ -212,7 +240,7 @@ function applyZone(
     const zoned =
       instant?.toZonedDateTimeISO(zone) ??
       Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
-    return zoned.toString({ timeZoneName: "never" });
+    return zoned.toString({ timeZoneName: "never", calendarName: "never" });
   } catch (e) {
     throw new Error(
       `Could not interpret event ${field} "${time}" in time zone "${zone}": ${errorMessage(e)}`
@@ -236,8 +264,8 @@ export function parseEventSpec(eventSpec: string): EventSpec {
   const timeZone = readString(spec, "timeZone");
   const startTimeZone = readString(spec, "startTimeZone");
   const endTimeZone = readString(spec, "endTimeZone");
-  let start = withoutDateAnnotation(readString(spec, "start"));
-  let end = withoutDateAnnotation(readString(spec, "end"));
+  let start = withoutDateAnnotation(readTime(spec, "start"));
+  let end = withoutDateAnnotation(readTime(spec, "end"));
   // An event whose times are all dates is all-day unless it says
   // otherwise, as FullCalendar would infer; recording that here lets
   // filters on `allDay` agree with the calendar. `allDay: false` asks for
@@ -247,8 +275,14 @@ export function parseEventSpec(eventSpec: string): EventSpec {
 
   // Apply timezones to start/end times if provided
   if (allDay) {
-    start = start === undefined ? start : toCalendarDate("start", start);
-    end = end === undefined ? end : toCalendarDate("end", end);
+    start =
+      start === undefined
+        ? start
+        : toCalendarDate("start", start, startTimeZone ?? timeZone);
+    end =
+      end === undefined
+        ? end
+        : toCalendarDate("end", end, endTimeZone ?? timeZone);
   } else {
     start = applyZone("start", start, startTimeZone ?? timeZone);
     end = applyZone("end", end, endTimeZone ?? timeZone);

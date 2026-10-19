@@ -66,6 +66,12 @@ describe("resolveSourcePath", () => {
     );
   });
 
+  test("adds .md to a missing note whose name contains a dot", () => {
+    expect(resolveSourcePath("Trips/Trip v1.2", "index.md", vault)).toBe(
+      "Trips/Trip v1.2.md"
+    );
+  });
+
   test("uses a path with no file yet as written", () => {
     // As in version 1: the note may not have been created yet, and its
     // events appear once it is.

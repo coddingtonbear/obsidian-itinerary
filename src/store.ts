@@ -93,6 +93,17 @@ export class EventStore {
     }
   }
 
+  /** Re-reads every document a subscriber shows, e.g. once the vault has
+   * finished loading. */
+  async refreshAll(): Promise<void> {
+    const paths = new Set(
+      [...this.subscribers].flatMap((subscriber) => subscriber.sourcePaths)
+    );
+    await Promise.all(
+      [...paths].map((path) => this.refresh(path).catch(() => undefined))
+    );
+  }
+
   /** Follows a document that was renamed or moved: its cached events move
    * with it, and subscribers displaying it switch to the new path. */
   rename(oldPath: DocumentPath, newPath: DocumentPath): void {

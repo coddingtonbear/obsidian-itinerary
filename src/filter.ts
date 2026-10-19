@@ -69,6 +69,16 @@ function readOptionalProperty(
   return get(name);
 }
 
+/** An event's tags as filters see them: always a list. An untagged event
+ * gets `[null]` rather than `[]`, because filtrex 3 reads `tag in (...)` as
+ * "tag is a subset of" the list, which an empty list always is; `[null]`
+ * gives the results filtrex 2 gave a missing tag (`tag in (...)` false,
+ * `"hotel" in tag` false, and their negations true). */
+function tagsForFilter(evt: EventSpec): (string | null)[] {
+  const tags = getArrayForArrayOrObject(evt.tag);
+  return tags.length > 0 ? tags : [null];
+}
+
 /** Compiles a filtrex expression into a predicate over events.
  *
  * Filtrex reports runtime failures (an unknown function, a value of the
@@ -80,19 +90,9 @@ function readOptionalProperty(
  * `undefined` (filtrex 2's behaviour) instead of filtrex 3's default of an
  * "unknown property" error. Filtrex 3 is also strict about operand types,
  * so the fields filters most often test are given their natural empty
- * values: `tag` is always a list and `allDay`/`hidden` are always
- * booleans. Without that, `not allDay` or `"hotel" not in tag` would never
+ * values: `tag` is always a list (see tagsForFilter) and `allDay`/`hidden`
+ * are always booleans. Without that, `not allDay` or `"hotel" not in tag` would never
  * match an event that leaves those fields out. */
-/** An event's tags as filters see them: always a list. An untagged event
- * gets `[null]` rather than `[]`, because filtrex 3 reads `tag in (...)` as
- * "tag is a subset of" the list, which an empty list always is; `[null]`
- * gives the results filtrex 2 gave a missing tag (`tag in (...)` false,
- * `"hotel" in tag` false, and their negations true). */
-function tagsForFilter(evt: EventSpec): (string | null)[] {
-  const tags = getArrayForArrayOrObject(evt.tag);
-  return tags.length > 0 ? tags : [null];
-}
-
 export function compileFilter(expression: string): EventFilter {
   const compiled = compileExpression(expression, {
     customProp: readOptionalProperty,
@@ -108,6 +108,11 @@ export function compileFilter(expression: string): EventFilter {
     if (result instanceof Error) {
       return { matched: false, error: result.message };
     }
-    return { matched: Boolean(result) };
+    // A list is truthy only if it holds something, so a bare `tag` filter
+    // matches tagged events only, as it did in filtrex 2.
+    const matched = Array.isArray(result)
+      ? result.some((item) => item !== null && item !== undefined)
+      : Boolean(result);
+    return { matched };
   };
 }

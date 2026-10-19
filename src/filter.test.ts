@@ -69,6 +69,11 @@ describe("compileFilter", () => {
     ).toBe(true);
   });
 
+  test("matches a bare tag filter only for tagged events", () => {
+    expect(compileFilter("tag")(event({}))).toBe(false);
+    expect(compileFilter("tag")(event({ tag: "hotel" }))).toBe(true);
+  });
+
   test("compares string properties", () => {
     const filter = compileFilter('color == "red"');
     expect(filter(event({ color: "red" }))).toBe(true);

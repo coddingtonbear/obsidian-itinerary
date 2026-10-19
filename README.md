@@ -169,7 +169,7 @@ A few things worth knowing about the syntax:
 
 - `<`, `<=`, `>` and `>=` compare two numbers or two pieces of text; since dates are written as ISO text, `start >= "2021-11-01" and start < "2021-11-02"` picks out a single day's events.
 - `tag == "hotel"` matches an event whose *only* tag is `hotel`; use `"hotel" in tag` to match any event tagged `hotel`.
-- `not`, `and` and `or` need `true`/`false` values, so `not color` is an error for an event without a color.  With `debug: true`, the itinerary explains why each event was left out.
+- `not`, `and` and `or` need `true`/`false` values, so `not color` is an error for an event without a color, and `not tag` is an error for every event; use `"hotel" not in tag`, or a bare `tag` to pick out tagged events.  With `debug: true`, the itinerary explains why each event was left out.
 
 See "Filtering events based upon tag" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
 
@@ -336,7 +336,9 @@ A few things do behave differently:
 
 - The calendar looks somewhat different, and takes its colors from your Obsidian theme.  Events without a `color` of their own are drawn in the itinerary's `eventColor` if it sets one, or your theme's accent color, instead of always blue.
 - An event's `borderColor` now only affects the event summary in your note; FullCalendar 7 draws each event in a single color.
-- Renamed options that only make sense with custom CSS (those ending in `ClassNames`) are not translated; see [FullCalendar's upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).
+- Renamed options that only make sense with custom CSS (those ending in `ClassNames`), and `nowIndicatorContent` (which FullCalendar 7 split in two), are not translated; see [FullCalendar's upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).
+- An event whose times are all dates (`start: 2021-11-04`, `end: 2021-11-08`, no `allDay`) now counts as all-day in filters, matching how the calendar has always drawn it: `filter: allDay` includes it and `not allDay` leaves it out.
+- The summary shown where you wrote an all-day event names the last day the calendar draws it on.  FullCalendar treats an all-day event's `end` as exclusive, so an event ending on November 4th is described as running through November 3rd.
 - An event whose `start` and `end` are dates without times is drawn as all-day even when it has a `timeZone`; version 1 drew it as a timed event starting at midnight in that zone.  Add `allDay: false` to keep the old behavior.
 - Filters are stricter about types; see "Expressions" above.
 - The plugin now requires Obsidian 1.13.1 or newer.

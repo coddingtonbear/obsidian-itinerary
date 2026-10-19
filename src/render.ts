@@ -70,6 +70,12 @@ export class ItineraryRenderer
           luxonFormatPlugin,
         ],
         ...this.calendarOptions,
+        // Popovers ("+3 more") are attached to the end of the document,
+        // outside the calendar; this class lets styles.css theme them.
+        popoverClass: joinClasses(
+          "itinerary-popover",
+          this.calendarOptions.popoverClass
+        ),
       });
       this.calendar.render();
     } catch (e) {
@@ -112,6 +118,11 @@ export class ItineraryRenderer
   /** Reloads the displayed events from the itinerary's sources. */
   async refresh(): Promise<void> {
     const generation = ++this.generation;
+    // Before loading, so it's current even if loading fails.
+    const missing = this.paths.filter((path) => !this.sourceExists(path));
+    this.noticeEl?.setText(
+      missing.map((path) => `No note at ${path} yet.`).join(" ")
+    );
     let events: EventSpec[];
     try {
       events = await this.store.getEvents(this.sourcePaths);
@@ -138,11 +149,6 @@ export class ItineraryRenderer
         ]
       : null;
     const shown = events.filter((evt) => this.matchesFilters(evt, messages));
-
-    const missing = this.paths.filter((path) => !this.sourceExists(path));
-    this.noticeEl?.setText(
-      missing.map((path) => `No note at ${path} yet.`).join(" ")
-    );
 
     calendar.batchRendering(() => {
       calendar.removeAllEventSources();
@@ -180,6 +186,12 @@ export class ItineraryRenderer
     this.statusEl.empty();
     renderErrorPre(this.statusEl, message, cls);
   }
+}
+
+function joinClasses(base: string, extra: unknown): string {
+  return typeof extra === "string" && extra.trim() !== ""
+    ? `${base} ${extra}`
+    : base;
 }
 
 /** The FullCalendar 7 input for an event. FullCalendar 7 replaced

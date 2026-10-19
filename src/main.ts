@@ -29,16 +29,20 @@ export default class Itinerary extends Plugin {
       )
     );
     // A source given as a path may not exist until later. Obsidian also
-    // fires `create` for every file while it loads the vault, so listen
-    // only once that's done.
+    // fires `create` for every file while it loads the vault, so those are
+    // ignored; instead, once loading is done, everything shown is re-read,
+    // which catches itineraries rendered before their sources had loaded.
+    let vaultLoaded = false;
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        if (vaultLoaded && file instanceof TFile) {
+          this.store.scheduleRefresh(file.path);
+        }
+      })
+    );
     this.app.workspace.onLayoutReady(() => {
-      this.registerEvent(
-        this.app.vault.on("create", (file) => {
-          if (file instanceof TFile) {
-            this.store.scheduleRefresh(file.path);
-          }
-        })
-      );
+      vaultLoaded = true;
+      void this.store.refreshAll();
     });
 
     this.register(() => this.store.dispose());

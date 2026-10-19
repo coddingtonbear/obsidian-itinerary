@@ -95,6 +95,31 @@ describe("translateLegacyOptions", () => {
     ]);
   });
 
+  test("gives view buttons the text set for their unit", () => {
+    const { options } = translateLegacyOptions({
+      buttonText: { today: "Now", month: "Mo", list: "Agenda" },
+    });
+    expect(options.buttons).toEqual({
+      today: { text: "Now" },
+      month: { text: "Mo" },
+      list: { text: "Agenda" },
+      dayGridMonth: { text: "Mo" },
+      listDay: { text: "Agenda" },
+      listWeek: { text: "Agenda" },
+      listMonth: { text: "Agenda" },
+      listYear: { text: "Agenda" },
+    });
+  });
+
+  test("renames content options", () => {
+    const { options } = translateLegacyOptions({
+      allDayContent: "Whole",
+      slotLabelContent: "x",
+    });
+    expect(options.allDayHeaderContent).toBe("Whole");
+    expect(options.slotHeaderContent).toBe("x");
+  });
+
   test("drops removed options", () => {
     const { options, notes } = translateLegacyOptions({
       titleRangeSeparator: " to ",

@@ -224,6 +224,35 @@ describe("ItineraryRenderer", () => {
     renderer.unload();
   });
 
+  test("labels view buttons with version 1's buttonText", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      parseItinerarySpec(
+        [
+          "initialView: listWeek",
+          "initialDate: 2021-11-01",
+          "headerToolbar:",
+          "  start: dayGridMonth,listWeek",
+          "  end: today",
+          "buttonText:",
+          "  today: Now",
+          "  month: Mo",
+          "  list: Agenda",
+        ].join("\n")
+      ),
+      ["trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    const labels = Array.from(el.querySelectorAll("button")).map(
+      (button) => button.textContent
+    );
+    expect(labels).toEqual(expect.arrayContaining(["Mo", "Agenda", "Now"]));
+    renderer.unload();
+  });
+
   test("shows each event once when a note is listed twice", async () => {
     const renderer = new ItineraryRenderer(
       el,
@@ -345,6 +374,28 @@ describe("ItineraryRenderer", () => {
     expect(el.querySelector(".itinerary-error")?.textContent).toMatch(
       /dayGridMonht/
     );
+    renderer.unload();
+  });
+
+  test("updates the missing-note notice even when loading fails", async () => {
+    let exists = false;
+    store = new EventStore(() => Promise.reject(new Error("unreadable")));
+    const renderer = new ItineraryRenderer(
+      el,
+      listSpec,
+      ["trip.md"],
+      store,
+      () => exists
+    );
+    renderer.load();
+    await settle();
+    expect(el.querySelector(".itinerary-notice")?.textContent).toBe(
+      "No note at trip.md yet."
+    );
+
+    exists = true;
+    await renderer.refresh();
+    expect(el.querySelector(".itinerary-notice")?.textContent).toBe("");
     renderer.unload();
   });
 

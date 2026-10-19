@@ -70,12 +70,13 @@
   line-height: var(--line-height-normal);
 }
 
-/* Draw the calendar in the active Obsidian theme's colours. These are set
- * on body rather than the calendar because FullCalendar portals popovers
- * (such as "+3 more") to the end of the document, and the event chips in
- * notes fall back to them too. The names are FullCalendar's own, so
- * nothing else in Obsidian reads them. */
-body {
+/* Draw the calendar in the active Obsidian theme's colours. Popovers
+ * ("+3 more") are attached to the end of the document, outside the
+ * calendar, so they carry .itinerary-popover; the event chips in notes fall
+ * back to these colours too. Other plugins' calendars are left alone. */
+.itinerary-calendar,
+.itinerary-popover,
+.itinerary-event {
   --fc-classic-button: var(--interactive-normal);
   --fc-classic-button-border: var(--background-modifier-border);
   --fc-classic-button-strong: var(--interactive-hover);
