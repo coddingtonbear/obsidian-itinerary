@@ -75,6 +75,14 @@
 .itinerary-event .tags + .itinerary-event-edit {
   margin-left: 0;
 }
+/* In live preview, Obsidian puts its own "Edit this block" button in the
+ * block's top right corner (.embed-actions); keep the edit button, and
+ * anything else, out from under it. */
+.markdown-source-view.mod-cm6 .itinerary-event {
+  padding-inline-end: calc(
+    var(--icon-size) + 2 * var(--size-2-3) + var(--size-2-2) + var(--size-4-1)
+  );
+}
 
 /* The classic theme fixes a 16px font; follow the note instead. */
 .itinerary-calendar {
