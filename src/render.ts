@@ -247,16 +247,21 @@ export function renderEvent(
   element.createDiv({ cls: "name", text: event.title });
   element.createDiv({ cls: "date", text: describeEventTime(event) });
 
+  // Tags and the edit button wrap onto the next line together.
   const tags = getArrayForArrayOrObject(event.tag);
+  if (tags.length === 0 && !onEdit) {
+    return;
+  }
+  const end = element.createDiv({ cls: "itinerary-event-end" });
   if (tags.length > 0) {
-    const tagList = element.createDiv({ cls: "tags" });
+    const tagList = end.createDiv({ cls: "tags" });
     for (const tagName of tags) {
       tagList.createDiv({ cls: "tag", text: tagName });
     }
   }
 
   if (onEdit) {
-    const button = element.createEl("button", {
+    const button = end.createEl("button", {
       cls: ["clickable-icon", "itinerary-event-edit"],
     });
     button.setAttribute("aria-label", "Edit event");

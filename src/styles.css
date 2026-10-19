@@ -58,22 +58,21 @@
 .itinerary-event .date {
   font-style: italic;
 }
+.itinerary-event .itinerary-event-end {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1) var(--size-4-2);
+  margin-left: auto;
+}
 .itinerary-event .tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-4-1);
-  margin-left: auto;
 }
 .itinerary-event .tag {
   border-radius: var(--radius-s);
   border: 1px solid var(--background-modifier-border);
   padding: 2px 5px;
-}
-.itinerary-event .itinerary-event-edit {
-  margin-left: auto;
-}
-.itinerary-event .tags + .itinerary-event-edit {
-  margin-left: 0;
 }
 /* In live preview, Obsidian puts its own "Edit this block" button in the
  * block's top right corner (.embed-actions); keep the edit button, and

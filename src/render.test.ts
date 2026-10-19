@@ -53,6 +53,14 @@ describe("renderEvent", () => {
     expect(el.querySelector(".name")?.textContent).toBe("<b>bold</b>");
   });
 
+  test("keeps its tags and edit button together, to wrap as one", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({ tag: ["hotel"] }), () => undefined);
+    const tags = el.querySelector(".tags");
+    expect(tags?.parentElement).toBe(el.querySelector("button")?.parentElement);
+    expect(tags?.parentElement).not.toBe(el.querySelector(".itinerary-event"));
+  });
+
   test("has no edit button unless given something to call", () => {
     const el = document.createElement("div");
     renderEvent(el, event({}));
