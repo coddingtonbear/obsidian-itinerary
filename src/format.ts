@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 
+import { isDateOnly, readInstant } from "./extractor";
 import { EventSpec } from "./types";
 
 export interface FormatOptions {
@@ -30,9 +31,18 @@ const TimeFormat: Intl.DateTimeFormatOptions = {
   timeZoneName: "short",
 };
 
-function parseDate(time: string | undefined): Temporal.PlainDate | null {
+/** Reads the calendar date of an ISO time; a time naming its own offset
+ * is read on its date in `zone`. */
+function parseDate(
+  time: string | undefined,
+  zone: string
+): Temporal.PlainDate | null {
   if (time === undefined) {
     return null;
+  }
+  const instant = readInstant(time);
+  if (instant) {
+    return instant.toZonedDateTimeISO(zone).toPlainDate();
   }
   try {
     return Temporal.PlainDate.from(time);
@@ -50,10 +60,9 @@ function parseTime(
   if (time === undefined) {
     return null;
   }
-  try {
-    return Temporal.Instant.from(time).toZonedDateTimeISO(zone);
-  } catch {
-    // No offset; read it as wall-clock time below.
+  const instant = readInstant(time);
+  if (instant) {
+    return instant.toZonedDateTimeISO(zone);
   }
   try {
     return Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
@@ -71,12 +80,22 @@ export function describeEventTime(
   event: EventSpec,
   { locale, timeZone }: FormatOptions = {}
 ): string {
-  if (event.allDay) {
-    const start = parseDate(event.start);
+  const localZone = timeZone ?? Temporal.Now.timeZoneId();
+  // FullCalendar draws an event whose times are all dates as all-day too.
+  const allDay =
+    event.allDay ??
+    (isDateOnly(event.start) &&
+      (event.end === undefined || isDateOnly(event.end)));
+
+  if (allDay) {
+    const start = parseDate(event.start, event.timeZone ?? localZone);
     // FullCalendar treats an all-day event's end date as exclusive (an
     // event ending on the 4th is drawn through the 3rd), so describe the
     // last day it is actually shown on.
-    const end = parseDate(event.end)?.subtract({ days: 1 }) ?? null;
+    const end =
+      parseDate(event.end, event.timeZone ?? localZone)?.subtract({
+        days: 1,
+      }) ?? null;
     if (!start) {
       return "All day";
     }
@@ -87,7 +106,6 @@ export function describeEventTime(
     return `${startText} - ${end.toLocaleString(locale, DateFormat)} (all day)`;
   }
 
-  const localZone = timeZone ?? Temporal.Now.timeZoneId();
   const start = parseTime(
     event.start,
     event.startTimeZone ?? event.timeZone ?? localZone

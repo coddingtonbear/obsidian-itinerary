@@ -4,8 +4,6 @@ import { Temporal } from "temporal-polyfill";
 import { EventSpec } from "./types";
 import { errorMessage, isRecord } from "./util";
 
-const DefaultTextColor = "white";
-const DefaultColor = "blue";
 const DefaultTitle = "Untitled event";
 
 const EventBlockPattern =
@@ -87,26 +85,39 @@ function readTags(
   return readString(spec, "tag");
 }
 
-/** Whether an ISO time names its own offset (`Z` or `+05:00`). */
-function hasOffset(time: string): boolean {
-  return /(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(time) && time.includes("T");
+const DateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whether an ISO time is a date without a time of day. */
+export function isDateOnly(time: string | undefined): boolean {
+  return time !== undefined && DateOnlyPattern.test(time.trim());
+}
+
+/** Reads an ISO time as an instant, if it names its own offset (`Z`,
+ * `+05:00`, a bracketed zone, ...). */
+export function readInstant(time: string): Temporal.Instant | null {
+  try {
+    return Temporal.Instant.from(time);
+  } catch {
+    return null;
+  }
 }
 
 /** Interprets a wall-clock time in the given zone as an absolute ISO time.
  * A time that already names its offset is the same instant, shown in that
- * zone. */
+ * zone. A date without a time is left alone: FullCalendar reads such dates
+ * as all-day, and giving them a zone would make them events at midnight. */
 function applyZone(
   field: string,
   time: string | undefined,
   zone: string | undefined
 ): string | undefined {
-  if (time === undefined || zone === undefined) {
+  if (time === undefined || zone === undefined || isDateOnly(time)) {
     return time;
   }
   try {
-    const zoned = hasOffset(time)
-      ? Temporal.Instant.from(time).toZonedDateTimeISO(zone)
-      : Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
+    const zoned =
+      readInstant(time)?.toZonedDateTimeISO(zone) ??
+      Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
     return zoned.toString({ timeZoneName: "never" });
   } catch (e) {
     throw new Error(
@@ -148,10 +159,11 @@ export function parseEventSpec(eventSpec: string): EventSpec {
     tag: readTags(spec),
     hidden: readBoolean(spec, "hidden"),
     title: readString(spec, "title") || DefaultTitle,
-    backgroundColor:
-      readString(spec, "backgroundColor") ?? color ?? DefaultColor,
-    borderColor: readString(spec, "borderColor") ?? color ?? DefaultColor,
-    textColor: readString(spec, "textColor") ?? DefaultTextColor,
+    // Colors are left unset unless given, so the itinerary's eventColor
+    // and the theme's accent apply to the rest.
+    backgroundColor: readString(spec, "backgroundColor") ?? color,
+    borderColor: readString(spec, "borderColor") ?? color,
+    textColor: readString(spec, "textColor"),
   });
 }
 

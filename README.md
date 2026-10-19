@@ -334,7 +334,8 @@ Version 2 of this plugin moves from FullCalendar 5 to FullCalendar 7, which rena
 
 A few things do behave differently:
 
-- The calendar looks somewhat different, and takes its colors from your Obsidian theme.
+- The calendar looks somewhat different, and takes its colors from your Obsidian theme.  Events without a `color` of their own are drawn in the itinerary's `eventColor` if it sets one, or your theme's accent color, instead of always blue.
+- An event's `borderColor` now only affects the event summary in your note; FullCalendar 7 draws each event in a single color.
 - Renamed options that only make sense with custom CSS (those ending in `ClassNames`) are not translated; see [FullCalendar's upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).
 - Filters are stricter about types; see "Expressions" above.
 - The plugin now requires Obsidian 1.13.1 or newer.

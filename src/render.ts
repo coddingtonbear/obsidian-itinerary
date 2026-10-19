@@ -133,15 +133,27 @@ export class ItineraryRenderer
 }
 
 /** The FullCalendar 7 input for an event. FullCalendar 7 replaced
- * `backgroundColor`/`borderColor` with a single `color`, and `textColor`
- * with `contrastColor`. */
+ * `backgroundColor`/`borderColor` with a single `color` (there is no
+ * separate border color), `textColor` with `contrastColor`, and the
+ * `classNames` list with a `className` string. Colors an event doesn't set
+ * are left out, so the itinerary's `eventColor` and the theme apply. */
 export function toEventInput(event: EventSpec): EventInput {
-  const { backgroundColor, borderColor, textColor, ...input } = event;
-  return {
-    ...input,
-    color: backgroundColor || borderColor,
-    contrastColor: textColor,
-  };
+  const { backgroundColor, borderColor, textColor, classNames, ...input } =
+    event;
+  const result: EventInput = { ...input };
+  if (backgroundColor !== undefined) {
+    result.color = backgroundColor;
+  }
+  if (textColor !== undefined) {
+    result.contrastColor = textColor;
+  }
+  const classes = getArrayForArrayOrObject<unknown>(classNames).filter(
+    (name): name is string => typeof name === "string"
+  );
+  if (classes.length > 0 && result.className === undefined) {
+    result.className = classes.join(" ");
+  }
+  return result;
 }
 
 /** Renders an event's summary where its `itinerary-event` block appears. */
@@ -153,11 +165,17 @@ export function renderEvent(container: HTMLElement, event: EventSpec): void {
   const element = container.createDiv({
     cls: ["itinerary", "itinerary-event"],
   });
-  element.setCssProps({
-    "--itinerary-event-background": event.backgroundColor,
-    "--itinerary-event-border": event.borderColor,
-    "--itinerary-event-text": event.textColor,
-  });
+  const colors: Record<string, string> = {};
+  if (event.backgroundColor !== undefined) {
+    colors["--itinerary-event-background"] = event.backgroundColor;
+  }
+  if (event.borderColor !== undefined) {
+    colors["--itinerary-event-border"] = event.borderColor;
+  }
+  if (event.textColor !== undefined) {
+    colors["--itinerary-event-text"] = event.textColor;
+  }
+  element.setCssProps(colors);
 
   element.createDiv({ cls: "name", text: event.title });
   element.createDiv({ cls: "date", text: describeEventTime(event) });

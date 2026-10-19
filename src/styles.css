@@ -34,9 +34,14 @@
 .itinerary-event .name {
   padding: 2px 5px;
   border-radius: var(--radius-s);
-  border: 1px solid var(--itinerary-event-border);
-  background-color: var(--itinerary-event-background);
-  color: var(--itinerary-event-text);
+  /* Events without colors of their own take the calendar's. */
+  border: 1px solid
+    var(
+      --itinerary-event-border,
+      var(--itinerary-event-background, var(--fc-classic-event))
+    );
+  background-color: var(--itinerary-event-background, var(--fc-classic-event));
+  color: var(--itinerary-event-text, var(--fc-classic-event-contrast));
 }
 .itinerary-event .date {
   font-style: italic;
@@ -53,12 +58,18 @@
   padding: 2px 5px;
 }
 
-/* Draw the calendar in the active Obsidian theme's colours. */
+/* The classic theme fixes a 16px font; follow the note instead. */
 .itinerary-calendar {
-  /* The classic theme fixes a 16px font; follow the note instead. */
   font-size: inherit;
   line-height: var(--line-height-normal);
+}
 
+/* Draw the calendar in the active Obsidian theme's colours. These are set
+ * on body rather than the calendar because FullCalendar portals popovers
+ * (such as "+3 more") to the end of the document, and the event chips in
+ * notes fall back to them too. The names are FullCalendar's own, so
+ * nothing else in Obsidian reads them. */
+body {
   --fc-classic-button: var(--interactive-normal);
   --fc-classic-button-border: var(--background-modifier-border);
   --fc-classic-button-strong: var(--interactive-hover);
