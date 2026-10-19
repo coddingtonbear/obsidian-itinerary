@@ -11,7 +11,9 @@ import {
   findTarget,
   matching,
   presentFields,
+  commentStart,
   tagsInNote,
+  textLines,
   yamlScalar,
 } from "./completion";
 
@@ -155,6 +157,7 @@ describe("findTarget", () => {
       from: 10,
       to: 14,
       prefix: "",
+      suffix: "",
     });
   });
 
@@ -169,9 +172,24 @@ describe("findTarget", () => {
 
   test("a value's span stops at a comment after it", () => {
     expect(findTarget(["timeZone: Ame  # where we land"], 0, 13)).toMatchObject(
-      { query: "Ame", from: 10, to: 13 }
+      { query: "Ame", from: 10, to: 13, suffix: "" }
     );
     expect(findTarget(["tag: a#b"], 0, 5)).toMatchObject({ to: 8 });
+    expect(
+      findTarget(['timeZone: "Ame" # where we land'], 0, 14)
+    ).toMatchObject({ query: "Ame", from: 10, to: 15 });
+  });
+
+  test("keeps a comment touching the cursor apart from the value", () => {
+    expect(findTarget(["allDay: # note"], 0, 8)).toMatchObject({
+      from: 8,
+      to: 8,
+      suffix: " ",
+    });
+    expect(findTarget(["timeZone: Ame # c"], 0, 14)).toMatchObject({
+      to: 14,
+      suffix: " ",
+    });
   });
 
   test("a value just after the colon", () => {
@@ -209,6 +227,7 @@ describe("findTarget", () => {
       from: 2,
       to: 4,
       prefix: "",
+      suffix: "",
     });
     expect(findTarget(["tag:", "  - fl"], 1, 6)).toMatchObject({
       field: "tag",
@@ -239,6 +258,21 @@ describe("matching", () => {
       matching(["America/New_York", "Europe/Paris", "Asia/Yerevan"], "york")
     ).toEqual(["America/New_York"]);
     expect(matching(["Etc/GMT+5"], "gmt")).toEqual(["Etc/GMT+5"]);
+  });
+});
+
+describe("commentStart", () => {
+  test("finds a # at the start or after a space", () => {
+    expect(commentStart("# x")).toBe(0);
+    expect(commentStart("a # x")).toBe(2);
+    expect(commentStart("a#b")).toBe(-1);
+  });
+
+  test("skips quoted text", () => {
+    expect(commentStart('"a # b" # c')).toBe(8);
+    expect(commentStart('"a \\" # b" # c')).toBe(11);
+    expect(commentStart("'it''s # here' # c")).toBe(15);
+    expect(commentStart('"# unclosed')).toBe(-1);
   });
 });
 
@@ -282,7 +316,7 @@ describe("tags", () => {
       "tag: nope",
       "```",
     ].join("\n");
-    expect(tagsInNote(note)).toEqual(["hotel", "flight", "outing"]);
+    expect(tagsInNote(textLines(note))).toEqual(["hotel", "flight", "outing"]);
   });
 
   test("tagsInNote reads indented blocks and ones not closed yet", () => {
@@ -297,7 +331,7 @@ describe("tags", () => {
       "  tag: flight",
       "  ```",
     ].join("\n");
-    expect(tagsInNote(note)).toEqual(["new", "hotel", "flight"]);
+    expect(tagsInNote(textLines(note))).toEqual(["new", "hotel", "flight"]);
   });
 
   test("presentFields lists top-level keys", () => {
@@ -384,6 +418,15 @@ describe("complete", () => {
 
   test("offers nothing in a block's indentation", () => {
     expect(completeAt("  ```itinerary-event\n | ti\n  ```")).toBeNull();
+  });
+
+  test("offers nothing on a line indented less than the fence", () => {
+    expect(completeAt("  ```itinerary-event\n ti|\n  ```")).toBeNull();
+  });
+
+  test("writes a value apart from a comment after it", () => {
+    const result = completeAt("```itinerary-event\nallDay: |# note\n```");
+    expect(result?.suggestions[0].text).toBe("true ");
   });
 
   test("suggests true and false, unquoted", () => {

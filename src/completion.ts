@@ -165,30 +165,32 @@ const CloseFencePattern = /^[ \t]*```[ \t]*$/;
  * opening fence inside a block that hasn't been closed yet ends it and
  * starts another, rather than being read as part of its body. Otherwise a
  * block started above an existing one would take in that one's fields. */
-export function* blocksIn(doc: DocumentLines): Generator<BlockLocation> {
-  let open: { kind: BlockKind; line: number; indent: string } | null = null;
+export function* blocksIn(
+  doc: DocumentLines,
+  /** Stop once past this line with no block open. */
+  until = Infinity
+): Generator<BlockLocation> {
+  let open: Omit<BlockLocation, "closeLine"> | null = null;
   for (let i = 0; i < doc.lineCount; i++) {
+    if (open === null && i > until) {
+      return;
+    }
     const text = doc.getLine(i);
     if (open !== null && CloseFencePattern.test(text)) {
-      yield { kind: open.kind, openLine: open.line, closeLine: i, indent: open.indent };
+      yield { ...open, closeLine: i };
       open = null;
       continue;
     }
     const match = OpenFencePattern.exec(text);
     if (match) {
       if (open !== null) {
-        yield { kind: open.kind, openLine: open.line, closeLine: i, indent: open.indent };
+        yield { ...open, closeLine: i };
       }
-      open = { kind: match[2] as BlockKind, line: i, indent: match[1] };
+      open = { kind: match[2] as BlockKind, openLine: i, indent: match[1] };
     }
   }
   if (open !== null) {
-    yield {
-      kind: open.kind,
-      openLine: open.line,
-      closeLine: doc.lineCount,
-      indent: open.indent,
-    };
+    yield { ...open, closeLine: doc.lineCount };
   }
 }
 
@@ -198,7 +200,7 @@ export function findBlock(
   doc: DocumentLines,
   line: number
 ): BlockLocation | null {
-  for (const block of blocksIn(doc)) {
+  for (const block of blocksIn(doc, line)) {
     if (block.openLine >= line) {
       return null;
     }
@@ -268,6 +270,8 @@ export type CompletionTarget =
       /** Written before the value: a space, if the colon has none after
        * it (`allDay:true` isn't a field, to YAML). */
       prefix: string;
+      /** Written after it: a space, if a comment would otherwise touch it. */
+      suffix: string;
     };
 
 /** Works out whether the cursor is on a field name or a field's value.
@@ -310,10 +314,33 @@ export function findTarget(
   return null;
 }
 
-/** Whether YAML reads a value as starting a comment by this point: a `#`
- * at its start or after a space, outside quotes. */
-function hasComment(value: string): boolean {
-  return !/^["']/.test(value) && /(^|[ \t])#/.test(value);
+/** Where YAML starts a comment in a value: a `#` at its start or after a
+ * space, outside the quotes of a quoted value. -1 if there is none. */
+export function commentStart(value: string): number {
+  let i = 0;
+  const quote = value[0];
+  if (quote === '"' || quote === "'") {
+    // Skip the quoted part; `\"` and `''` don't end it.
+    i = 1;
+    while (i < value.length) {
+      if (quote === '"' && value[i] === "\\") {
+        i += 2;
+      } else if (quote === "'" && value.startsWith("''", i)) {
+        i += 2;
+      } else if (value[i] === quote) {
+        break;
+      } else {
+        i++;
+      }
+    }
+    i++;
+  }
+  for (; i < value.length; i++) {
+    if (value[i] === "#" && (i === 0 || /[ \t]/.test(value[i - 1]))) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 function valueTarget(
@@ -323,22 +350,24 @@ function valueTarget(
   ch: number,
   prefix: string
 ): CompletionTarget | null {
-  const typed = line.slice(from, ch);
+  const value = line.slice(from);
+  const comment = commentStart(value);
   // Flow collections (`[a, b]`, `{...}`) and comments are left alone.
-  if (/^[[{]/.test(typed) || hasComment(typed)) {
+  if (/^[[{]/.test(value) || (comment !== -1 && from + comment < ch)) {
     return null;
   }
-  // The value runs to the end of the line, or to a comment after it.
-  const value = line.slice(from);
-  const comment = hasComment(value) ? /(^|[ \t])#/.exec(value) : null;
-  const end = from + (comment ? comment.index : value.length);
+  // The value runs to the end of the line, or to a comment after it,
+  // which must stay apart from it.
+  const end = comment === -1 ? value.length : comment;
+  const to = Math.max(ch, from + value.slice(0, end).trimEnd().length);
   return {
     type: "value",
     field,
-    query: typed.replace(/^["']/, ""),
+    query: line.slice(from, ch).replace(/^["']/, ""),
     from,
-    to: Math.max(ch, from + line.slice(from, end).trimEnd().length),
+    to,
     prefix,
+    suffix: comment !== -1 && to === from + comment ? " " : "",
   };
 }
 
@@ -439,8 +468,7 @@ export function blockTags(body: string): string[] {
 }
 
 /** The distinct tags of a note's event blocks, in the order first used. */
-export function tagsInNote(text: string): string[] {
-  const doc = textLines(text);
+export function tagsInNote(doc: DocumentLines): string[] {
   const tags = new Set<string>();
   for (const block of blocksIn(doc)) {
     if (block.kind === "itinerary-event") {
@@ -501,7 +529,7 @@ export function suggest(
     .filter((value) => value !== target.query)
     .map((value) => ({
       label: value,
-      text: target.prefix + write(value),
+      text: target.prefix + write(value) + target.suffix,
     }));
 }
 
@@ -530,7 +558,9 @@ export function complete(
   const body = blockBody(doc, block);
   const index = cursor.line - block.openLine - 1;
   const removed = body.removed[index];
-  if (cursor.ch < removed) {
+  // A line indented less than the fence isn't part of the block's YAML
+  // as Markdown sees it (it ends the list item).
+  if (cursor.ch < removed || removed < block.indent.length) {
     return null;
   }
   const target = findTarget(body.lines, index, cursor.ch - removed);

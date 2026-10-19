@@ -28,17 +28,14 @@ export class BlockSuggest extends EditorSuggest<Suggestion> {
     editor: Editor,
     _file: TFile | null
   ): EditorSuggestTriggerInfo | null {
-    this.completion = complete(
-      {
-        lineCount: editor.lineCount(),
-        getLine: (line) => editor.getLine(line),
-      },
-      cursor,
-      {
-        timeZones: supportedTimeZones,
-        noteTags: () => tagsInNote(editor.getValue()),
-      }
-    );
+    const doc = {
+      lineCount: editor.lineCount(),
+      getLine: (line: number) => editor.getLine(line),
+    };
+    this.completion = complete(doc, cursor, {
+      timeZones: supportedTimeZones,
+      noteTags: () => tagsInNote(doc),
+    });
     if (this.completion === null) {
       return null;
     }
