@@ -84,7 +84,7 @@ const AnnotatedDatePattern = /^(\d{4}-\d{2}-\d{2})\[[^\]]*\]$/;
 
 /** The ISO forms FullCalendar 7's own date parser accepts (its `ISO_RE`,
  * restricted to full dates). */
-const CalendarIsoPattern =
+export const CalendarIsoPattern =
   /^\s*\d{4}-?\d{2}-?\d{2}(?:[T ]\d{2}:?\d{2}(?::?\d{2}(?:\.\d+)?)?(?:Z|[-+]\d{2}(?::?\d{2})?)?)?$/;
 
 /** Whether an ISO time is a date without a time of day. */
@@ -124,6 +124,19 @@ function respell(time: string): string {
     .replace(/([-+]\d{2}:?\d{2}):?00$/, "$1");
 }
 
+/** Throws for a time naming a zone (in brackets) that Temporal couldn't
+ * read: reading the rest as wall-clock time would put the event somewhere
+ * the user didn't ask for. Other annotations (`[u-ca=iso8601]`) are fine. */
+function rejectUnknownZone(field: string, time: string): void {
+  for (const [, annotation] of time.matchAll(/\[!?([^\]]*)\]/g)) {
+    if (!annotation.includes("=")) {
+      throw new Error(
+        `Could not interpret event ${field} "${time}": unknown time zone "${annotation}".`
+      );
+    }
+  }
+}
+
 /** Rewrites a time FullCalendar's own parser would reject into one it
  * accepts. Times it accepts, and respellable ones, keep the date, time and
  * offset written, so filters comparing them as text see what the user
@@ -147,13 +160,7 @@ function toCalendarTime(field: string, time: string): string {
   if (instant) {
     return instant.toString();
   }
-  if (time.includes("[")) {
-    // A zone Temporal doesn't know; reading the rest as wall-clock time
-    // would put the event somewhere the user didn't ask for.
-    throw new Error(
-      `Could not interpret event ${field} "${time}": unknown time zone.`
-    );
-  }
+  rejectUnknownZone(field, time);
   try {
     return Temporal.PlainDateTime.from(time).toString();
   } catch {
@@ -198,15 +205,13 @@ function applyZone(
     return toCalendarTime(field, time);
   }
   const instant = readInstant(time);
+  if (!instant) {
+    rejectUnknownZone(field, time);
+  }
   try {
     const zoned =
       instant?.toZonedDateTimeISO(zone) ??
-      (time.includes("[")
-        ? null
-        : Temporal.PlainDateTime.from(time).toZonedDateTime(zone));
-    if (zoned === null) {
-      throw new Error("unknown time zone");
-    }
+      Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
     return zoned.toString({ timeZoneName: "never" });
   } catch (e) {
     throw new Error(
@@ -271,8 +276,7 @@ export function parseEventSpec(eventSpec: string): EventSpec {
 }
 
 /** Drops options that weren't set. FullCalendar treats an option that is
- * present but undefined as set: `allDay: undefined` reads as `false`, which
- * stops it inferring all-day events from date-only times. */
+ * present but undefined as set (`allDay: undefined` reads as `false`). */
 function withoutUndefined<T extends object>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, v]) => v !== undefined)

@@ -5,6 +5,7 @@ import dayGridPlugin from "fullcalendar/daygrid";
 import listPlugin from "fullcalendar/list";
 import timeGridPlugin from "fullcalendar/timegrid";
 import classicTheme from "fullcalendar/themes/classic";
+import luxonFormatPlugin from "@fullcalendar/format-luxon3";
 
 import { EventFilter, compileFilter } from "./filter";
 import { describeEventTime } from "./format";
@@ -19,6 +20,8 @@ export class ItineraryRenderer
 {
   private calendar: Calendar | null = null;
   private statusEl: HTMLElement | null = null;
+  private noticeEl: HTMLElement | null = null;
+  private paths: readonly DocumentPath[];
   /** Counts refreshes, so one that finishes after a later one is dropped. */
   private generation = 0;
   private readonly filters: EventFilter[];
@@ -29,10 +32,15 @@ export class ItineraryRenderer
   constructor(
     containerEl: HTMLElement,
     private readonly spec: ItinerarySpec,
-    private paths: readonly DocumentPath[],
-    private readonly store: EventStore
+    paths: readonly DocumentPath[],
+    private readonly store: EventStore,
+    /** Whether a source note exists, to say which ones don't yet. */
+    private readonly sourceExists: (path: DocumentPath) => boolean = () =>
+      true
   ) {
     super(containerEl);
+    // A note listed twice (as a link and as a path, say) is shown once.
+    this.paths = [...new Set(paths)];
     this.filterExpressions = getArrayForArrayOrObject(spec.filter);
     this.filters = this.filterExpressions.map((expression) =>
       compileFilter(expression)
@@ -47,11 +55,20 @@ export class ItineraryRenderer
     const calendarEl = this.containerEl.createDiv({
       cls: ["itinerary", "itinerary-calendar"],
     });
+    this.noticeEl = this.containerEl.createDiv({ cls: "itinerary-notice" });
     this.statusEl = this.containerEl.createDiv();
 
     try {
       this.calendar = new Calendar(calendarEl, {
-        plugins: [classicTheme, dayGridPlugin, timeGridPlugin, listPlugin],
+        // The luxon formatter reads string formats (`titleFormat: "MMMM
+        // yyyy"`), which version 1 supported through @fullcalendar/luxon.
+        plugins: [
+          classicTheme,
+          dayGridPlugin,
+          timeGridPlugin,
+          listPlugin,
+          luxonFormatPlugin,
+        ],
         ...this.calendarOptions,
       });
       this.calendar.render();
@@ -83,7 +100,9 @@ export class ItineraryRenderer
   }
 
   renameSource(oldPath: DocumentPath, newPath: DocumentPath): void {
-    this.paths = this.paths.map((path) => (path === oldPath ? newPath : path));
+    this.paths = [
+      ...new Set(this.paths.map((path) => (path === oldPath ? newPath : path))),
+    ];
   }
 
   onEventsChanged(): void {
@@ -109,31 +128,39 @@ export class ItineraryRenderer
       return;
     }
 
-    const messages: string[] = [
-      ...this.optionNotes,
-      ...this.filterExpressions.map(
-        (expression, idx) => `Filter #${idx} '${expression}' compiled`
-      ),
-    ];
+    // Debug messages are only collected when they'll be shown.
+    const messages: string[] | null = this.spec.debug
+      ? [
+          ...this.optionNotes,
+          ...this.filterExpressions.map(
+            (expression, idx) => `Filter #${idx} '${expression}' compiled`
+          ),
+        ]
+      : null;
     const shown = events.filter((evt) => this.matchesFilters(evt, messages));
+
+    const missing = this.paths.filter((path) => !this.sourceExists(path));
+    this.noticeEl?.setText(
+      missing.map((path) => `No note at ${path} yet.`).join(" ")
+    );
 
     calendar.batchRendering(() => {
       calendar.removeAllEventSources();
       calendar.addEventSource(shown.map(toEventInput));
     });
 
-    if (this.spec.debug) {
+    if (messages) {
       this.showStatus(messages.join("\n"), "itinerary-debug");
     } else {
       this.statusEl?.empty();
     }
   }
 
-  private matchesFilters(evt: EventSpec, messages: string[]): boolean {
+  private matchesFilters(evt: EventSpec, messages: string[] | null): boolean {
     for (const [idx, filter] of this.filters.entries()) {
       const result = filter(evt);
       if (!result.matched) {
-        messages.push(
+        messages?.push(
           result.error === undefined
             ? `Event '${evt.title}' failed filter #${idx}`
             : `Event '${evt.title}' failed filter #${idx}: ${result.error}`
@@ -141,9 +168,10 @@ export class ItineraryRenderer
         return false;
       }
     }
-    messages.push(`Event '${evt.title}' passed all filters`);
+    messages?.push(`Event '${evt.title}' passed all filters`);
     return true;
   }
+
 
   private showStatus(message: string, cls: string): void {
     if (!this.statusEl) {

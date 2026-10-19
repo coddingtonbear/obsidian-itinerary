@@ -123,11 +123,11 @@ And as a reward for your effort, you can then render calendars for your various 
 
 You can specify the following options for displaying your itinerary:
 
-- `source`: A link to the note (or a list of links to the notes) to gather events from, e.g. `"[[My Vacation Plans]]"`.  Links resolve exactly as they do elsewhere in Obsidian, so a note's name is usually enough even if it lives in a subfolder.  Defaults to events found in the same note the calendar is rendered in.  This field also accepts a path relative to your vault root (e.g. `Trips/Mexico.md`) instead of a link, but a link is recommended since the editor can autocomplete it.
+- `source`: A link to the note (or a list of links to the notes) to gather events from, e.g. `"[[My Vacation Plans]]"`.  Links resolve exactly as they do elsewhere in Obsidian, so a note's name is usually enough even if it lives in a subfolder.  Defaults to events found in the same note the calendar is rendered in.  This field also accepts a path relative to your vault root (e.g. `Trips/Mexico.md`) instead of a link, but a link is recommended since the editor can autocomplete it.  A path may name a note you haven't created yet: the itinerary says so below the calendar, and shows the note's events once it exists.  If you rename or move a source note, open itineraries follow it, but Obsidian doesn't update links inside code blocks, so update the `source` too.
 - `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which events will be displayed. If unspecified, all events found in the selected sources will be included.
-- `debug`: Will cause some debugging information to be printed below your rendered itinerary.
+- `debug`: If `true`, prints some debugging information below your rendered itinerary: which events each filter let through or left out (and why), and any calendar options that were translated for FullCalendar 7.
 
-In addition to the above, you can provide any options described in [FullCalendar's documentation](https://fullcalendar.io/docs) (this plugin uses FullCalendar 7); particularly useful properties include:
+In addition to the above, you can provide any options described in [FullCalendar's documentation](https://fullcalendar.io/docs) (this plugin uses FullCalendar 7).  Date format options accept either FullCalendar's format objects or [Luxon format strings](https://moment.github.io/luxon/#/formatting?id=table-of-tokens) such as `titleFormat: "MMMM yyyy"`.  Particularly useful properties include:
 
 - `initialDate`: The date to focus on your calendar.  This can be useful for displaying a different month than your current date, for example.  Defaults to the current date.
 - `initialView`: What kind of calendar to show; by default, a `dayGridMonth` view will be shown, but the options include:

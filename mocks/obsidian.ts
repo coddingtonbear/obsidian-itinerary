@@ -82,6 +82,9 @@ function installDomHelpers(proto: HTMLElement): void {
       this.removeChild(this.firstChild);
     }
   };
+  proto.setText = function (this: HTMLElement, text: string): void {
+    this.textContent = text;
+  } as HTMLElement["setText"];
   proto.setCssProps = function (
     this: HTMLElement,
     props: Record<string, string>

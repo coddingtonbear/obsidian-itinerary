@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 
-import { hasOnlyDates, readInstant } from "./extractor";
+import { readInstant } from "./extractor";
 import { EventSpec } from "./types";
 
 export interface FormatOptions {
@@ -82,7 +82,9 @@ export function describeEventTime(
 ): string {
   const localZone = timeZone ?? Temporal.Now.timeZoneId();
   // FullCalendar draws an event whose times are all dates as all-day too.
-  const allDay = event.allDay ?? hasOnlyDates(event.start, event.end);
+  // parseEventSpec records whether an event is all-day, inferring it from
+  // date-only times the way FullCalendar does.
+  const allDay = event.allDay ?? false;
 
   if (allDay) {
     const start = parseDate(event.start, event.timeZone ?? localZone);

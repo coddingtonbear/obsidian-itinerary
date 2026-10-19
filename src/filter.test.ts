@@ -59,6 +59,16 @@ describe("compileFilter", () => {
     expect(compileFilter('"hotel" in tag')(event({}))).toBe(false);
   });
 
+  test("does not match an untagged event on tag-in-list filters", () => {
+    expect(compileFilter('tag in ("hotel", "flight")')(event({}))).toBe(false);
+    expect(compileFilter('tag not in ("hotel", "flight")')(event({}))).toBe(
+      true
+    );
+    expect(
+      compileFilter('tag in ("hotel", "flight")')(event({ tag: "hotel" }))
+    ).toBe(true);
+  });
+
   test("compares string properties", () => {
     const filter = compileFilter('color == "red"');
     expect(filter(event({ color: "red" }))).toBe(true);

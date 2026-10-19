@@ -243,6 +243,20 @@ describe("parseEventSpec validation", () => {
     expect(evt).not.toHaveProperty("textColor");
   });
 
+  test("accepts a calendar annotation in brackets", () => {
+    expect(parseEventSpec('start: "2021-11-01T12:00[u-ca=iso8601]"').start).toBe(
+      "2021-11-01T12:00:00"
+    );
+  });
+
+  test("names the unknown bracketed zone, not the event's timeZone", () => {
+    expect(() =>
+      parseEventSpec(
+        'start: "2021-11-01T12:00[Europe/Pari]"\ntimeZone: America/New_York'
+      )
+    ).toThrow(/unknown time zone "Europe\/Pari"/);
+  });
+
   test("rejects an unknown time zone", () => {
     expect(() =>
       parseEventSpec("start: 2021-11-01T12:00\ntimeZone: Mars/Olympus_Mons")

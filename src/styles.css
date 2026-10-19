@@ -21,6 +21,12 @@
   border-color: var(--background-modifier-border);
 }
 
+.itinerary-notice:not(:empty) {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: var(--size-4-1) 0;
+}
+
 .itinerary-event {
   display: flex;
   flex-wrap: wrap;

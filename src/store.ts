@@ -98,11 +98,22 @@ export class EventStore {
   rename(oldPath: DocumentPath, newPath: DocumentPath): void {
     const events = this.events.get(oldPath);
     this.events.delete(oldPath);
+    this.events.delete(newPath);
     if (events) {
       this.events.set(newPath, events);
     }
-    for (const subscriber of this.dependentsOf(oldPath)) {
+    // An edit waiting to be read follows the note.
+    if (this.pendingRefreshes.delete(oldPath)) {
+      this.pendingRefreshes.add(newPath);
+    }
+    const moved = this.dependentsOf(oldPath);
+    for (const subscriber of moved) {
       subscriber.renameSource(oldPath, newPath);
+    }
+    // Includes subscribers waiting for a note at the new path: Obsidian
+    // makes a note by creating "Untitled.md" and renaming it, which fires
+    // `rename` but no `create` for the path it ends up at.
+    for (const subscriber of this.dependentsOf(newPath)) {
       subscriber.onEventsChanged();
     }
   }
@@ -129,9 +140,12 @@ export class EventStore {
       const loading: Promise<EventSpec[]> = this.read(path).catch(
         (error: unknown) => {
           // Don't cache a failure; the next request should try again. A
-          // refresh may have replaced this read with a newer one already.
-          if (this.events.get(path) === loading) {
-            this.events.delete(path);
+          // refresh may have replaced this read with a newer one already,
+          // and a rename may have moved it to another path.
+          for (const [cachedPath, cached] of this.events) {
+            if (cached === loading) {
+              this.events.delete(cachedPath);
+            }
           }
           throw error;
         }

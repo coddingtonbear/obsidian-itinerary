@@ -83,6 +83,16 @@ function readOptionalProperty(
  * values: `tag` is always a list and `allDay`/`hidden` are always
  * booleans. Without that, `not allDay` or `"hotel" not in tag` would never
  * match an event that leaves those fields out. */
+/** An event's tags as filters see them: always a list. An untagged event
+ * gets `[null]` rather than `[]`, because filtrex 3 reads `tag in (...)` as
+ * "tag is a subset of" the list, which an empty list always is; `[null]`
+ * gives the results filtrex 2 gave a missing tag (`tag in (...)` false,
+ * `"hotel" in tag` false, and their negations true). */
+function tagsForFilter(evt: EventSpec): (string | null)[] {
+  const tags = getArrayForArrayOrObject(evt.tag);
+  return tags.length > 0 ? tags : [null];
+}
+
 export function compileFilter(expression: string): EventFilter {
   const compiled = compileExpression(expression, {
     customProp: readOptionalProperty,
@@ -91,7 +101,7 @@ export function compileFilter(expression: string): EventFilter {
   return (evt: EventSpec): FilterResult => {
     const result: unknown = compiled({
       ...evt,
-      tag: getArrayForArrayOrObject(evt.tag),
+      tag: tagsForFilter(evt),
       allDay: evt.allDay ?? false,
       hidden: evt.hidden ?? false,
     });

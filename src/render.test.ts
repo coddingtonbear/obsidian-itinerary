@@ -209,6 +209,53 @@ describe("ItineraryRenderer", () => {
     renderer.unload();
   });
 
+  test("accepts luxon format strings, as version 1 did", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      { ...listSpec, eventTimeFormat: "HH:mm" },
+      ["trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    expect(el.querySelector(".itinerary-error")).toBeNull();
+    expect(eventRows().map((row) => row.time)).toEqual(["15:00", "12:00"]);
+    renderer.unload();
+  });
+
+  test("shows each event once when a note is listed twice", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      listSpec,
+      ["trip.md", "trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    expect(shownTitles()).toEqual(["Hotel", "Parade"]);
+    renderer.unload();
+  });
+
+  test("says which source notes don't exist yet", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      listSpec,
+      ["trip.md", "Trips/Paris.md"],
+      store,
+      (path) => path === "trip.md"
+    );
+    renderer.load();
+    await settle();
+
+    expect(el.querySelector(".itinerary-notice")?.textContent).toBe(
+      "No note at Trips/Paris.md yet."
+    );
+    expect(shownTitles()).toEqual(["Hotel", "Parade"]);
+    renderer.unload();
+  });
+
   test("shows only events matching its filters", async () => {
     const renderer = new ItineraryRenderer(
       el,

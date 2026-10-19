@@ -33,6 +33,8 @@ export function resolveSourcePath(
     return `${trimmed}.md`;
   }
   // As in version 1, a path to a note that doesn't exist yet is kept: its
-  // events appear once the note is created.
-  return trimmed;
+  // events appear once the note is created. Obsidian adds `.md` to the
+  // notes it creates, so a path without an extension gets it too.
+  const name = trimmed.slice(trimmed.lastIndexOf("/") + 1);
+  return name.includes(".") ? trimmed : `${trimmed}.md`;
 }

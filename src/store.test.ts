@@ -112,6 +112,30 @@ describe("EventStore", () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
 
+  test("tells subscribers waiting for a path when a note is renamed to it", async () => {
+    const waiting = subscriber(["trips/paris.md"]);
+    store.subscribe(waiting);
+    await store.getEvents(["trips/paris.md"]);
+    contents["trips/paris.md"] = [event("Paris")];
+
+    store.rename("Untitled.md", "trips/paris.md");
+
+    expect(waiting.onEventsChanged).toHaveBeenCalledTimes(1);
+    const events = await store.getEvents(["trips/paris.md"]);
+    expect(events.map((e) => e.title)).toEqual(["Paris"]);
+  });
+
+  test("forgets a failed read that was in flight during a rename", async () => {
+    read.mockRejectedValueOnce(new Error("busy"));
+    const loading = store.getEvents(["a.md"]);
+    store.rename("a.md", "b.md");
+    await expect(loading).rejects.toThrow("busy");
+
+    contents["b.md"] = [event("B2")];
+    const events = await store.getEvents(["b.md"]);
+    expect(events.map((e) => e.title)).toEqual(["B2"]);
+  });
+
   test("drops a cached document nobody uses any more instead of re-reading it", async () => {
     await store.getEvents(["a.md"]);
     await store.refresh("a.md");
@@ -206,6 +230,29 @@ describe("EventStore.scheduleRefresh", () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test("carries a pending refresh across a rename", async () => {
+    let paths = ["a.md"];
+    const onA = {
+      get sourcePaths() {
+        return paths;
+      },
+      onEventsChanged: vi.fn(),
+      renameSource(_old: string, newPath: string) {
+        paths = [newPath];
+      },
+    };
+    store.subscribe(onA);
+    await store.getEvents(["a.md"]);
+
+    store.scheduleRefresh("a.md");
+    store.rename("a.md", "b.md");
+    contents["b.md"] = [event("Edited")];
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const events = await store.getEvents(["b.md"]);
+    expect(events.map((e) => e.title)).toEqual(["Edited"]);
   });
 
   test("cancels a pending refresh when disposed", async () => {

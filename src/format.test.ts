@@ -1,5 +1,6 @@
 import { describe, test, expect } from "vitest";
 
+import { parseEventSpec } from "./extractor";
 import { FormatOptions, describeEventTime } from "./format";
 import { EventSpec } from "./types";
 
@@ -53,7 +54,7 @@ describe("describeEventTime", () => {
 
   test("describes date-only events as all-day without allDay", () => {
     expect(
-      describe_(event({ start: "2021-10-31", end: "2021-11-04" }))
+      describe_(parseEventSpec("start: 2021-10-31\nend: 2021-11-04"))
     ).toBe("October 31, 2021 - November 3, 2021 (all day)");
   });
 

@@ -60,6 +60,12 @@ describe("resolveSourcePath", () => {
     expect(resolveSourcePath("Root", "index.md", vault)).toBe("Root.md");
   });
 
+  test("adds .md to a path with no extension and no file yet", () => {
+    expect(resolveSourcePath("Trips/Paris", "index.md", vault)).toBe(
+      "Trips/Paris.md"
+    );
+  });
+
   test("uses a path with no file yet as written", () => {
     // As in version 1: the note may not have been created yet, and its
     // events appear once it is.

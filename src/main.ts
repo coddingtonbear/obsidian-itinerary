@@ -28,14 +28,18 @@ export default class Itinerary extends Plugin {
         this.store.rename(oldPath, file.path)
       )
     );
-    // A source given as a path may not exist until later.
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        if (file instanceof TFile) {
-          this.store.scheduleRefresh(file.path);
-        }
-      })
-    );
+    // A source given as a path may not exist until later. Obsidian also
+    // fires `create` for every file while it loads the vault, so listen
+    // only once that's done.
+    this.app.workspace.onLayoutReady(() => {
+      this.registerEvent(
+        this.app.vault.on("create", (file) => {
+          if (file instanceof TFile) {
+            this.store.scheduleRefresh(file.path);
+          }
+        })
+      );
+    });
 
     this.register(() => this.store.dispose());
 
@@ -82,7 +86,15 @@ export default class Itinerary extends Plugin {
             )
           : [ctx.sourcePath];
 
-      ctx.addChild(new ItineraryRenderer(el, spec, sourcePaths, this.store));
+      ctx.addChild(
+        new ItineraryRenderer(
+          el,
+          spec,
+          sourcePaths,
+          this.store,
+          (path) => this.app.vault.getFileByPath(path) !== null
+        )
+      );
     } catch (e) {
       renderErrorPre(el, errorMessage(e));
     }
