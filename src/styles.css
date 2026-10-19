@@ -1,0 +1,112 @@
+/* FullCalendar 7 ships its styles as stylesheets; esbuild bundles them
+ * into the plugin's styles.css. The classic theme's palette.css is left
+ * out: its colours are mapped onto the Obsidian theme below instead. */
+@import "fullcalendar/skeleton.css";
+@import "fullcalendar/themes/classic/theme.css";
+
+.itinerary {
+  width: 100%;
+}
+.itinerary-error,
+.itinerary-debug {
+  font-weight: var(--font-semibold);
+  padding: var(--size-4-2);
+  border: 1px solid;
+  white-space: pre-wrap;
+}
+.itinerary-error {
+  border-color: var(--text-error);
+}
+.itinerary-debug {
+  border-color: var(--background-modifier-border);
+}
+
+.itinerary-notice:not(:empty) {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: var(--size-4-1) 0;
+}
+
+.itinerary-event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1) var(--size-4-2);
+  padding: var(--size-4-1);
+  border: 1px solid var(--background-modifier-border);
+  margin-bottom: var(--size-4-1);
+  font-size: var(--font-ui-small);
+}
+.itinerary-event .name {
+  padding: 2px 5px;
+  border-radius: var(--radius-s);
+  /* Events without colors of their own take the calendar's. */
+  border: 1px solid
+    var(
+      --itinerary-event-border,
+      var(--itinerary-event-background, var(--fc-classic-event))
+    );
+  background-color: var(--itinerary-event-background, var(--fc-classic-event));
+  color: var(--itinerary-event-text, var(--fc-classic-event-contrast));
+}
+.itinerary-event .date {
+  font-style: italic;
+}
+.itinerary-event .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin-left: auto;
+}
+.itinerary-event .tag {
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+  padding: 2px 5px;
+}
+
+/* The classic theme fixes a 16px font; follow the note instead. */
+.itinerary-calendar {
+  font-size: inherit;
+  line-height: var(--line-height-normal);
+}
+
+/* Draw the calendar in the active Obsidian theme's colours. Popovers
+ * ("+3 more") are attached to the end of the document, outside the
+ * calendar, so they carry .itinerary-popover; the event chips in notes fall
+ * back to these colours too. Other plugins' calendars are left alone. */
+.itinerary-calendar,
+.itinerary-popover,
+.itinerary-event {
+  --fc-classic-button: var(--interactive-normal);
+  --fc-classic-button-border: var(--background-modifier-border);
+  --fc-classic-button-strong: var(--interactive-hover);
+  --fc-classic-button-strong-border: var(--background-modifier-border-hover);
+  --fc-classic-button-outline: var(--background-modifier-border-focus);
+  --fc-classic-button-foreground: var(--text-normal);
+
+  --fc-classic-primary: var(--interactive-accent);
+  --fc-classic-primary-foreground: var(--text-on-accent);
+
+  --fc-classic-event: var(--fc-classic-primary);
+  --fc-classic-event-contrast: var(--fc-classic-primary-foreground);
+  --fc-classic-background-event: var(--color-green);
+  --fc-classic-background-event-opacity: 15%;
+  --fc-classic-background-event-foreground-opacity: 50%;
+  --fc-classic-highlight: var(--text-selection);
+  --fc-classic-today: color-mix(in srgb, var(--color-yellow) 12%, transparent);
+  --fc-classic-now: var(--text-error);
+  --fc-classic-small-dot-width: 8px;
+  --fc-classic-large-dot-width: 10px;
+
+  --fc-classic-background: var(--background-primary);
+  --fc-classic-faint: color-mix(in srgb, var(--text-normal) 4%, transparent);
+  --fc-classic-muted: color-mix(in srgb, var(--text-normal) 8%, transparent);
+  --fc-classic-strong: color-mix(in srgb, var(--text-normal) 14%, transparent);
+
+  --fc-classic-foreground: var(--text-normal);
+  --fc-classic-faint-foreground: var(--text-faint);
+  --fc-classic-muted-foreground: var(--text-muted);
+
+  --fc-classic-border: var(--background-modifier-border);
+  --fc-classic-strong-border: var(--background-modifier-border-hover);
+}

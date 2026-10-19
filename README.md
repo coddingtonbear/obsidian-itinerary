@@ -4,7 +4,7 @@ Planning a vacation or need to otherwise see a set of events on a monthly, weekl
 
 ## Quickstart
 
-Imaging you have a document outlining what you want to do during an upcoming trip to Mexico; you could try to keep track of things in text like this:
+Imagine you have a document outlining what you want to do during an upcoming trip to Mexico; you could try to keep track of things in text like this:
 
 ~~~
 # Trip to Mexico
@@ -123,11 +123,11 @@ And as a reward for your effort, you can then render calendars for your various 
 
 You can specify the following options for displaying your itinerary:
 
-- `source`: The name of an obsidian source (or list of obsidian source) to gather data from; note that this must be surrounded in quotes (e.g. `"[[My Vacation Plans]]"`).  Defaults to events found in the same file the calendar is rendered in.  This field also accepts a path relative to your vault root instead of an obsian source name, but using an obsidian source name is recommended since such a name can be autocompleted via the editor.
-- `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which rows of the referenced CSV will be displayed. If unspecified, all events found in the selected sources will be included.
-- `debug`: Will cause some debugging information to be printed below your rendered itinerary.
+- `source`: A link to the note (or a list of links to the notes) to gather events from, e.g. `"[[My Vacation Plans]]"`.  Links resolve exactly as they do elsewhere in Obsidian, so a note's name is usually enough even if it lives in a subfolder.  Defaults to events found in the same note the calendar is rendered in.  This field also accepts a path relative to your vault root (e.g. `Trips/Mexico.md`) instead of a link, but a link is recommended since the editor can autocomplete it.  A path may name a note you haven't created yet: the itinerary says so below the calendar, and shows the note's events once it exists.  If you rename or move a source note, open itineraries follow it, but Obsidian doesn't update links inside code blocks, so update the `source` too.
+- `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which events will be displayed. If unspecified, all events found in the selected sources will be included.
+- `debug`: If `true`, prints some debugging information below your rendered itinerary: which events each filter let through or left out (and why), and any calendar options that were translated for FullCalendar 7.
 
-In addition to the above, you can provide any options described here: https://fullcalendar.io/docs; particularly useful properties include:
+In addition to the above, you can provide any options described in [FullCalendar's documentation](https://fullcalendar.io/docs) (this plugin uses FullCalendar 7).  Date format options accept either FullCalendar's format objects or [Luxon format strings](https://moment.github.io/luxon/#/formatting?id=table-of-tokens) such as `titleFormat: "MMMM yyyy"`.  Particularly useful properties include:
 
 - `initialDate`: The date to focus on your calendar.  This can be useful for displaying a different month than your current date, for example.  Defaults to the current date.
 - `initialView`: What kind of calendar to show; by default, a `dayGridMonth` view will be shown, but the options include:
@@ -149,20 +149,29 @@ You can specify the following options for events:
 
 - `title`: (Required) A name for your event.
 - `start`: (Required) An ISO timestamp representing your event's start time.
-- `end`: An ISO timestamp representing your event's end time.
+- `end`: An ISO timestamp representing your event's end time.  For all-day events, this date is *exclusive*: an event with `start: 2021-10-31` and `end: 2021-11-04` covers October 31st through November 3rd.
+- `timeZone`, `startTimeZone`, `endTimeZone`: The time zone your event's times were written in; see "Timezones" below.
 - `tag`: A single string tag or list of tags to associate with this event.  These are useful for specifically marking things like flights or hotel stays so you can generate calendars showing only one kind of event.
 - `hidden`: If `true`, this event will not be rendered individually in your notes where you've specified your event, and instead will appear only on relevant itineraries.  Defaults to `false`.
 
 Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
 
-- `color`: For marking your events in a particular color
-- `allDay`: For marking your event as an "all-day" event.
+- `color`: For marking your events in a particular color.  You can also set `backgroundColor`, `borderColor` and `textColor` separately; the calendar draws events in `backgroundColor` with `textColor` text, and the event summaries in your notes use all three.
+- `allDay`: For marking your event as an "all-day" event.  An event whose `start` and `end` are dates without times is all-day even if you leave this out.
 
 ### Expressions
 
-This library uses `filtrex` for expression evaluation; see their documentation to see more information about the expression syntax and what functions are available: https://github.com/m93a/filtrex#expressions.
+This library uses `filtrex` for expression evaluation; see their documentation to see more information about the expression syntax and what functions are available: https://github.com/cshaa/filtrex#expressions.
 
-See "Filtering displayed rows" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
+Any of an event's options can be used in an expression.  An option an event doesn't set is simply empty: `tag` is always treated as a list (so `"hotel" in tag` works whether an event has one tag, several, or none), `allDay` and `hidden` default to `false`, and anything else reads as empty.
+
+A few things worth knowing about the syntax:
+
+- `<`, `<=`, `>` and `>=` compare two numbers or two pieces of text; since dates are written as ISO text, `start >= "2021-11-01" and start < "2021-11-02"` picks out a single day's events.
+- `tag == "hotel"` matches an event whose *only* tag is `hotel`; use `"hotel" in tag` to match any event tagged `hotel`, and `empty(tag)` to match untagged events.
+- `not`, `and` and `or` need `true`/`false` values, so `not color` is an error for an event without a color, and `not tag` is an error for every event; use `"hotel" not in tag`, or a bare `tag` to pick out tagged events.  With `debug: true`, the itinerary explains why each event was left out.
+
+See "Filtering events based upon tag" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
 
 ## Tips
 
@@ -187,7 +196,7 @@ Try using `timeGridDay`, too!
 Imagine that you're going to be in some particular place for exactly four days; with the default `dayGrid` or `weekGrid` views, you'd have either not all of the relevant events displayed or you'd have many blank days shown.  You can instead render a particular number of days easily by using the `duration` option:
 
 ~~~
-```
+```itinerary
 initialDate: 2021-10-22
 initialView: dayGrid
 duration:
@@ -281,11 +290,11 @@ Maybe you don't want to see the toolbar above your rendered calendar?
 
 ~~~
 ```itinerary
-headerToolbar:
+headerToolbar: false
 ```
 ~~~
 
-See https://fullcalendar.io/docs/headerToolbar for more information.
+By default, itineraries show the calendar's title on the left and "Today", previous and next buttons on the right.  See https://fullcalendar.io/docs/headerToolbar for how to arrange it differently.
 
 ### Ordering calendar events
 
@@ -316,6 +325,43 @@ eventOrderStrict: true
 
 See [FullCalendar's docs](https://fullcalendar.io/docs/eventOrder) covering this for more details.
 
+## Upgrading from version 1
+
+Version 2 of this plugin moves from FullCalendar 5 to FullCalendar 7, which renamed or removed a number of calendar options.  Itineraries you've already written should keep working:
+
+- Options FullCalendar renamed (for example `slotLabelFormat`, now `slotHeaderFormat`, or `eventBackgroundColor`, now `eventColor`) are translated to their new names, and `buttonText` is folded into the new `buttons` option.  Options FullCalendar removed are ignored.  Add `debug: true` to an itinerary to see what was translated.
+- The header toolbar is still shown unless you hide it, even though FullCalendar 7 hides it by default.
+
+A few things do behave differently:
+
+- The calendar looks somewhat different, and takes its colors from your Obsidian theme.  Events without a `color` of their own are drawn in the itinerary's `eventColor` if it sets one, or your theme's accent color, instead of always blue.
+- An event's `borderColor` now only affects the event summary in your note; FullCalendar 7 draws each event in a single color.
+- Renamed options that only make sense with custom CSS (those ending in `ClassNames`), and `nowIndicatorContent` (which FullCalendar 7 split in two), are not translated; see [FullCalendar's upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).
+- An event whose times are all dates (`start: 2021-11-04`, `end: 2021-11-08`, no `allDay`) now counts as all-day in filters, matching how the calendar has always drawn it: `filter: allDay` includes it and `not allDay` leaves it out.
+- The summary shown where you wrote an all-day event names the last day the calendar draws it on.  FullCalendar treats an all-day event's `end` as exclusive, so an event ending on November 4th is described as running through November 3rd.
+- An event whose `start` and `end` are dates without times is drawn as all-day even when it has a `timeZone`; version 1 drew it as a timed event starting at midnight in that zone.  Add `allDay: false` to keep the old behavior.
+- Filters are stricter about types; see "Expressions" above.  In particular, a `start` or `end` written as a number (milliseconds since 1970) is now compared as an ISO date, so a filter comparing it with a number no longer matches.
+- The plugin now requires Obsidian 1.13.1 or newer.
+
+## Styling
+
+The calendar takes its colors from your Obsidian theme through FullCalendar's `--fc-classic-*` CSS variables.  To change them with a CSS snippet, set them on `.itinerary-calendar, .itinerary-popover, .itinerary-event` (the popover is the "+N more" list; `.itinerary-event` is an event's summary in your note), e.g. `--fc-classic-today: rgba(255, 200, 0, 0.1)`.
+
+## Development
+
+You'll need Node.js 22 (see `.tool-versions`).
+
+```
+npm ci
+npm run dev        # rebuild main.js on every change
+npm test           # unit tests
+npm run lint
+npm run typecheck
+npm run build      # production build
+```
+
+To try a build out, copy `main.js`, `manifest.json` and `styles.css` into `.obsidian/plugins/obsidian-itinerary/` in a test vault.
+
 ## Thanks
 
-This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give sombody thanks for the nice rendered calendars, they're the folks who deserve that.
+This is all built upon the excellent [FullCalendar](https://fullcalendar.io/) javascript library.  If you want to give somebody thanks for the nice rendered calendars, they're the folks who deserve that.

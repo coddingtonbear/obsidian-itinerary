@@ -1,211 +1,252 @@
 import { MarkdownRenderChild } from "obsidian";
 
-import { Calendar } from "@fullcalendar/core";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import listPlugin from "@fullcalendar/list";
-import luxonPlugin from "@fullcalendar/luxon";
+import { Calendar, CalendarOptions, EventInput } from "fullcalendar";
+import dayGridPlugin from "fullcalendar/daygrid";
+import listPlugin from "fullcalendar/list";
+import timeGridPlugin from "fullcalendar/timegrid";
+import classicTheme from "fullcalendar/themes/classic";
+import luxonFormatPlugin from "@fullcalendar/format-luxon3";
 
-import { compileExpression } from "filtrex";
-import { DateTime } from "luxon";
+import { EventFilter, compileFilter } from "./filter";
+import { describeEventTime } from "./format";
+import { getCalendarOptions } from "./spec";
+import { EventStore, EventSubscriber } from "./store";
+import { DocumentPath, EventSpec, ItinerarySpec } from "./types";
+import { errorMessage, getArrayForArrayOrObject } from "./util";
 
-import { EventSpec, ItinerarySpec } from "./types";
-import { getArrayForArrayOrObject } from "./util";
-
-export class ItineraryRenderer extends MarkdownRenderChild {
-  private messages: string[] = [];
-  private loaded: boolean = false;
-  private calendar: Calendar;
-  private compiledFilters: ((item: Record<string, any>) => any)[] = [];
-  private sources: Record<string, EventSpec[]> = {};
+export class ItineraryRenderer
+  extends MarkdownRenderChild
+  implements EventSubscriber
+{
+  private calendar: Calendar | null = null;
+  private statusEl: HTMLElement | null = null;
+  private noticeEl: HTMLElement | null = null;
+  private paths: readonly DocumentPath[];
+  /** Counts refreshes, so one that finishes after a later one is dropped. */
+  private generation = 0;
+  private readonly filters: EventFilter[];
+  private readonly filterExpressions: string[];
+  private readonly calendarOptions: CalendarOptions;
+  private readonly optionNotes: string[];
 
   constructor(
-    private spec: ItinerarySpec,
-    private sourcePaths: string[],
-    private container: HTMLElement
+    containerEl: HTMLElement,
+    private readonly spec: ItinerarySpec,
+    paths: readonly DocumentPath[],
+    private readonly store: EventStore,
+    /** Whether a source note exists, to say which ones don't yet. */
+    private readonly sourceExists: (path: DocumentPath) => boolean = () =>
+      true
   ) {
-    super(container);
-    for (const [idx, filter] of getArrayForArrayOrObject(
-      this.spec.filter
-    ).entries()) {
-      this.compiledFilters.push(compileExpression(filter));
-      this.log(`Filter #${idx} '${filter}' compiled`);
+    super(containerEl);
+    // A note listed twice (as a link and as a path, say) is shown once.
+    this.paths = [...new Set(paths)];
+    this.filterExpressions = getArrayForArrayOrObject(spec.filter);
+    this.filters = this.filterExpressions.map((expression) =>
+      compileFilter(expression)
+    );
+    const { options, notes } = getCalendarOptions(spec);
+    this.calendarOptions = options;
+    this.optionNotes = notes;
+  }
+
+
+  onload(): void {
+    const calendarEl = this.containerEl.createDiv({
+      cls: ["itinerary", "itinerary-calendar"],
+    });
+    this.noticeEl = this.containerEl.createDiv({ cls: "itinerary-notice" });
+    this.statusEl = this.containerEl.createDiv();
+
+    try {
+      this.calendar = new Calendar(calendarEl, {
+        // The luxon formatter reads string formats (`titleFormat: "MMMM
+        // yyyy"`), which version 1 supported through @fullcalendar/luxon.
+        plugins: [
+          classicTheme,
+          dayGridPlugin,
+          timeGridPlugin,
+          listPlugin,
+          luxonFormatPlugin,
+        ],
+        ...this.calendarOptions,
+        // Popovers ("+3 more") are attached to the end of the document,
+        // outside the calendar; this class lets styles.css theme them.
+        popoverClass: joinClasses(
+          "itinerary-popover",
+          this.calendarOptions.popoverClass
+        ),
+      });
+      this.calendar.render();
+    } catch (e) {
+      // FullCalendar rejects some options outright (an unknown
+      // `initialView`, say); show why instead of an empty block.
+      try {
+        this.calendar?.destroy();
+      } catch {
+        // A half-built calendar may fail to tear down; it's removed below.
+      }
+      this.calendar = null;
+      calendarEl.remove();
+      this.showStatus(errorMessage(e), "itinerary-error");
+      return;
+    }
+
+    this.register(this.store.subscribe(this));
+    void this.refresh();
+  }
+
+  onunload(): void {
+    this.calendar?.destroy();
+    this.calendar = null;
+  }
+
+  get sourcePaths(): readonly DocumentPath[] {
+    return this.paths;
+  }
+
+  renameSource(oldPath: DocumentPath, newPath: DocumentPath): void {
+    this.paths = [
+      ...new Set(this.paths.map((path) => (path === oldPath ? newPath : path))),
+    ];
+  }
+
+  onEventsChanged(): void {
+    void this.refresh();
+  }
+
+  /** Reloads the displayed events from the itinerary's sources. */
+  async refresh(): Promise<void> {
+    const generation = ++this.generation;
+    // Before loading, so it's current even if loading fails.
+    const missing = this.paths.filter((path) => !this.sourceExists(path));
+    this.noticeEl?.setText(
+      missing.map((path) => `No note at ${path} yet.`).join(" ")
+    );
+    let events: EventSpec[];
+    try {
+      events = await this.store.getEvents(this.sourcePaths);
+    } catch (e) {
+      if (generation === this.generation) {
+        this.showStatus(errorMessage(e), "itinerary-error");
+      }
+      return;
+    }
+
+    const calendar = this.calendar;
+    if (!calendar || generation !== this.generation) {
+      // Unloaded, or superseded by a later refresh, while loading.
+      return;
+    }
+
+    // Debug messages are only collected when they'll be shown.
+    const messages: string[] | null = this.spec.debug
+      ? [
+          ...this.optionNotes,
+          ...this.filterExpressions.map(
+            (expression, idx) => `Filter #${idx} '${expression}' compiled`
+          ),
+        ]
+      : null;
+    const shown = events.filter((evt) => this.matchesFilters(evt, messages));
+
+    calendar.batchRendering(() => {
+      calendar.removeAllEventSources();
+      calendar.addEventSource(shown.map(toEventInput));
+    });
+
+    if (messages) {
+      this.showStatus(messages.join("\n"), "itinerary-debug");
+    } else {
+      this.statusEl?.empty();
     }
   }
 
-  async onload() {
-    await this.render();
-    this.loaded = true;
-  }
-
-  async onunload() {
-    this.loaded = false;
-  }
-
-  isLoaded(): boolean {
-    return this.loaded;
-  }
-
-  /** Updates stored event information
-   *
-   * Returns `false` if source file is *not* an event source for
-   *   this particular itinerary.
-   * Returns `true` if source file *is*.
-   */
-  updateSource(source: string, events: EventSpec[]): boolean {
-    if (this.sourcePaths.includes(source)) {
-      this.sources[source] = events;
-      this.render();
-      return true;
-    }
-    return false;
-  }
-
-  /** Returns whether selected event matches all provided filter specs. */
-  eventMatchesFilters(
-    evt: EventSpec,
-    filters: ((item: Record<string, any>) => any)[]
-  ): boolean {
-    for (const [idx, filter] of filters.entries()) {
-      if (!filter(evt)) {
-        this.log(`Event '${evt.title}' failed filter #${idx}`);
+  private matchesFilters(evt: EventSpec, messages: string[] | null): boolean {
+    for (const [idx, filter] of this.filters.entries()) {
+      const result = filter(evt);
+      if (!result.matched) {
+        messages?.push(
+          result.error === undefined
+            ? `Event '${evt.title}' failed filter #${idx}`
+            : `Event '${evt.title}' failed filter #${idx}: ${result.error}`
+        );
         return false;
       }
     }
-    this.log(`Event '${evt.title}' passed all filters`);
+    messages?.push(`Event '${evt.title}' passed all filters`);
     return true;
   }
 
-  log(message: any) {
-    if (this.spec.debug) {
-      console.log(message);
-      this.messages.push(message);
+
+  private showStatus(message: string, cls: string): void {
+    if (!this.statusEl) {
+      return;
     }
-  }
-
-  async render() {
-    try {
-      const events = Object.values(this.sources)
-        .flat()
-        .filter((evt) => this.eventMatchesFilters(evt, this.compiledFilters));
-
-      if (!this.calendar) {
-        const calendarProps = { ...this.spec };
-        // Our itinerary spec extends the CalendarOptions object used by
-        // @fullcalendar/core, but there are a handful of properties that
-        // are used only by obsidian-itinerary; we need to delete them
-        // or @fullcalendar/core will show a warning in the console.
-        delete calendarProps.source;
-        delete calendarProps.filter;
-        delete calendarProps.debug;
-
-        this.calendar = new Calendar(this.container, {
-          plugins: [dayGridPlugin, timeGridPlugin, listPlugin, luxonPlugin],
-          ...calendarProps,
-        });
-      }
-      this.calendar.removeAllEvents();
-      this.calendar.addEventSource(events);
-      this.calendar.render();
-
-      setTimeout(() => this.calendar.updateSize(), 250);
-      if (this.spec.debug) {
-        renderErrorPre(
-          this.container,
-          this.messages.join("\n"),
-          "itinerary-debug"
-        );
-        this.messages = [];
-      }
-    } catch (e) {
-      renderErrorPre(this.container, e);
-    }
+    this.statusEl.empty();
+    renderErrorPre(this.statusEl, message, cls);
   }
 }
 
-export class EventRenderer extends MarkdownRenderChild {
-  constructor(private event: EventSpec, private container: HTMLElement) {
-    super(container);
+function joinClasses(base: string, extra: unknown): string {
+  return typeof extra === "string" && extra.trim() !== ""
+    ? `${base} ${extra}`
+    : base;
+}
+
+/** The FullCalendar 7 input for an event. FullCalendar 7 replaced
+ * `backgroundColor`/`borderColor` with a single `color` (there is no
+ * separate border color), `textColor` with `contrastColor`, and the
+ * `classNames` list with a `className` string. Colors an event doesn't set
+ * are left out, so the itinerary's `eventColor` and the theme apply. */
+export function toEventInput(event: EventSpec): EventInput {
+  const { backgroundColor, borderColor, textColor, classNames, ...input } =
+    event;
+  const result: EventInput = { ...input };
+  if (backgroundColor !== undefined) {
+    result.color = backgroundColor;
+  }
+  if (textColor !== undefined) {
+    result.contrastColor = textColor;
+  }
+  const classes = getArrayForArrayOrObject<unknown>(classNames).filter(
+    (name): name is string => typeof name === "string"
+  );
+  if (classes.length > 0 && result.className === undefined) {
+    result.className = classes.join(" ");
+  }
+  return result;
+}
+
+/** Renders an event's summary where its `itinerary-event` block appears. */
+export function renderEvent(container: HTMLElement, event: EventSpec): void {
+  if (event.hidden) {
+    return;
   }
 
-  async onload() {
-    await this.render();
+  const element = container.createDiv({
+    cls: ["itinerary", "itinerary-event"],
+  });
+  const colors: Record<string, string> = {};
+  if (event.backgroundColor !== undefined) {
+    colors["--itinerary-event-background"] = event.backgroundColor;
   }
+  if (event.borderColor !== undefined) {
+    colors["--itinerary-event-border"] = event.borderColor;
+  }
+  if (event.textColor !== undefined) {
+    colors["--itinerary-event-text"] = event.textColor;
+  }
+  element.setCssProps(colors);
 
-  async render() {
-    try {
-      if (this.event.hidden) {
-        // Remove all child nodes (in case we rendered them before)
-        while (this.container.firstChild) {
-          this.container.removeChild(this.container.firstChild);
-        }
-      } else {
-        const element = this.container.createEl("div", {
-          cls: ["itinerary", "itinerary-event"],
-        });
+  element.createDiv({ cls: "name", text: event.title });
+  element.createDiv({ cls: "date", text: describeEventTime(event) });
 
-        const name = element.createEl("div", {
-          cls: ["name"],
-        });
-        name.style.backgroundColor = this.event.backgroundColor;
-        name.style.borderColor = this.event.borderColor;
-        name.style.color = this.event.textColor;
-        name.innerText = this.event.title;
-
-        const dateStr = element.createEl("div", {
-          cls: ["date"],
-        });
-        let start: DateTime | null = null;
-        if (this.event.start) {
-          start = DateTime.fromISO(this.event.start);
-        }
-        let end: DateTime | null = null;
-        if (this.event.end) {
-          end = DateTime.fromISO(this.event.end);
-        }
-        if (this.event.allDay) {
-          if (!end || end == start) {
-            dateStr.innerText = `${end.toLocaleString(
-              DateTime.DATE_FULL
-            )} (all day)`;
-          } else {
-            dateStr.innerText = `${start.toLocaleString(
-              DateTime.DATE_FULL
-            )} - ${end.toLocaleString(DateTime.DATE_FULL)} (all day)`;
-          }
-        } else {
-          if (end) {
-            const zone = this.event.timeZone || this.event.endTimeZone;
-            if (zone) {
-              end = end.setZone(zone);
-            }
-          }
-          if (start) {
-            const zone = this.event.timeZone || this.event.startTimeZone;
-            if (zone) {
-              start = start.setZone(zone);
-            }
-          }
-          if (!end || end == start) {
-            dateStr.innerText = `${start.toLocaleString(
-              DateTime.DATETIME_FULL
-            )}`;
-          } else {
-            dateStr.innerText = `${start.toLocaleString(
-              DateTime.DATETIME_FULL
-            )} - ${end.toLocaleString(DateTime.DATETIME_FULL)}`;
-          }
-        }
-
-        for (const tagName of getArrayForArrayOrObject(this.event.tag)) {
-          const tag = element.createEl("div", {
-            cls: ["tag"],
-          });
-          tag.innerText = tagName;
-        }
-      }
-    } catch (e) {
-      renderErrorPre(this.container, e);
+  const tags = getArrayForArrayOrObject(event.tag);
+  if (tags.length > 0) {
+    const tagList = element.createDiv({ cls: "tags" });
+    for (const tagName of tags) {
+      tagList.createDiv({ cls: "tag", text: tagName });
     }
   }
 }
@@ -215,9 +256,8 @@ export function renderErrorPre(
   error: string,
   cls?: string
 ): HTMLElement {
-  const pre = container.createEl("pre", {
+  return container.createEl("pre", {
     cls: ["itinerary", cls ?? "itinerary-error"],
+    text: error,
   });
-  pre.appendText(error);
-  return pre;
 }

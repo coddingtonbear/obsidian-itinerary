@@ -1,4 +1,4 @@
-import { EventInput, CalendarOptions } from "@fullcalendar/core";
+import { CalendarOptions, EventInput } from "fullcalendar";
 
 export type DocumentPath = string;
 
@@ -18,6 +18,7 @@ export interface EventSpec extends EventInput {
   endTimeZone?: string;
   hidden?: boolean;
   title: string;
-  backgoundColor: string;
-  textColor: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  textColor?: string;
 }
