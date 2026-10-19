@@ -87,6 +87,14 @@ function readTags(
 
 const DateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A date with a zone annotation but no time, e.g. `2021-11-01[Europe/Paris]`. */
+const AnnotatedDatePattern = /^(\d{4}-\d{2}-\d{2})\[[^\]]*\]$/;
+
+/** The ISO forms FullCalendar 7's own date parser accepts (its `ISO_RE`,
+ * restricted to full dates). */
+const CalendarIsoPattern =
+  /^\s*\d{4}-?\d{2}-?\d{2}(?:[T ]\d{2}:?\d{2}(?::?\d{2}(?:\.\d+)?)?(?:Z|[-+]\d{2}(?::?\d{2})?)?)?$/;
+
 /** Whether an ISO time is a date without a time of day. */
 export function isDateOnly(time: string | undefined): boolean {
   return time !== undefined && DateOnlyPattern.test(time.trim());
@@ -113,11 +121,27 @@ export function hasOnlyDates(start?: string, end?: string): boolean {
   return isDateOnly(start) && (end === undefined || isDateOnly(end));
 }
 
+/** Rewrites a time FullCalendar's own parser would reject (a bracketed
+ * zone, an offset with seconds, a lowercase `t`) into one it accepts,
+ * keeping its local date and offset where the time names a zone, and as
+ * UTC otherwise. Times FullCalendar already accepts are left as written,
+ * so filters comparing them as text see what the user wrote. */
+function toCalendarTime(time: string): string {
+  if (CalendarIsoPattern.test(time)) {
+    return time;
+  }
+  try {
+    return Temporal.ZonedDateTime.from(time).toString({ timeZoneName: "never" });
+  } catch {
+    // Names no zone; fall back to the instant, if it has one.
+  }
+  return readInstant(time)?.toString() ?? time;
+}
+
 /** Interprets a wall-clock time in the given zone as an absolute ISO time.
  * A time that already names its offset or zone is the same instant, shown
- * in that zone; without a zone it is written as UTC, a form FullCalendar's
- * own parser accepts (it rejects bracketed zones, offsets with seconds and
- * a few other forms Temporal reads).
+ * in that zone. Without a zone, the time is only rewritten if FullCalendar
+ * couldn't read it as written (see toCalendarTime).
  *
  * Dates without a time are left alone when `keepDates` is set (the event's
  * times are all dates): FullCalendar reads such events as all-day, and
@@ -131,10 +155,10 @@ function applyZone(
   if (time === undefined || (keepDates && isDateOnly(time))) {
     return time;
   }
-  const instant = readInstant(time);
   if (zone === undefined) {
-    return instant ? instant.toString() : time;
+    return toCalendarTime(time);
   }
+  const instant = readInstant(time);
   try {
     const zoned =
       instant?.toZonedDateTimeISO(zone) ??
@@ -145,6 +169,12 @@ function applyZone(
       `Could not interpret event ${field} "${time}" in time zone "${zone}": ${errorMessage(e)}`
     );
   }
+}
+
+/** A zone on a date without a time means nothing (the event is all-day),
+ * and would otherwise make the date read as a timed instant. */
+function withoutDateAnnotation(time: string | undefined): string | undefined {
+  return time?.trim().replace(AnnotatedDatePattern, "$1");
 }
 
 export function parseEventSpec(eventSpec: string): EventSpec {
@@ -158,12 +188,14 @@ export function parseEventSpec(eventSpec: string): EventSpec {
   const timeZone = readString(spec, "timeZone");
   const startTimeZone = readString(spec, "startTimeZone");
   const endTimeZone = readString(spec, "endTimeZone");
-  let start = readString(spec, "start");
-  let end = readString(spec, "end");
+  let start = withoutDateAnnotation(readString(spec, "start"));
+  let end = withoutDateAnnotation(readString(spec, "end"));
 
   // Apply timezones to start/end times if provided
   if (!allDay) {
-    const datesOnly = hasOnlyDates(start, end);
+    // Dates are left as dates only when the event is all-day by
+    // inference; `allDay: false` asks for them as midnight in the zone.
+    const datesOnly = allDay === undefined && hasOnlyDates(start, end);
     start = applyZone("start", start, startTimeZone ?? timeZone, datesOnly);
     end = applyZone("end", end, endTimeZone ?? timeZone, datesOnly);
   }

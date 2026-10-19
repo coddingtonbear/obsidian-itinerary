@@ -142,10 +142,37 @@ describe("parseEventSpec validation", () => {
     );
   });
 
-  test("writes a time naming its offset or zone as UTC when no zone is set", () => {
-    // FullCalendar's own parser rejects bracketed zones.
-    const evt = parseEventSpec('start: "2021-11-01T12:00+01:00[Europe/Paris]"');
-    expect(evt.start).toBe("2021-11-01T11:00:00Z");
+  test.each([
+    ["2021-11-01T00:30+01:00"],
+    ["2021-11-01T00:30:00Z"],
+    ["2021-11-01 00:30+01:00"],
+  ])("leaves %s as written when no zone is set", (start) => {
+    // Filters compare times as text: `start >= "2021-11-01"`.
+    expect(parseEventSpec(`start: "${start}"`).start).toBe(start);
+  });
+
+  test.each([
+    ["a lowercase separator", "2021-11-01t11:00Z", "2021-11-01T11:00:00Z"],
+    ["an offset with seconds", "2021-11-01T12:00+01:00:00", "2021-11-01T11:00:00Z"],
+  ])("rewrites a time with %s for FullCalendar when no zone is set", (_, start, expected) => {
+    expect(parseEventSpec(`start: "${start}"`).start).toBe(expected);
+  });
+
+  test("keeps the local date of a bracketed time when no zone is set", () => {
+    const evt = parseEventSpec('start: "2021-11-01T00:30+01:00[Europe/Paris]"');
+    expect(evt.start).toBe("2021-11-01T00:30:00+01:00");
+  });
+
+  test("reads a zone-annotated date as the date", () => {
+    const evt = parseEventSpec('start: "2021-11-01[Europe/Paris]"');
+    expect(evt.start).toBe("2021-11-01");
+  });
+
+  test("zones dates when allDay is false", () => {
+    const evt = parseEventSpec(
+      "start: 2021-11-01\nallDay: false\ntimeZone: Asia/Tokyo"
+    );
+    expect(evt.start).toBe("2021-11-01T00:00:00+09:00");
   });
 
   test("leaves a plain wall-clock time alone when no zone is set", () => {

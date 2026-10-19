@@ -1,4 +1,5 @@
 import { describe, test, expect } from "vitest";
+import { parseEventSpec } from "./extractor";
 import { compileFilter as compileWithErrors } from "./filter";
 import { EventSpec } from "./types";
 
@@ -77,6 +78,13 @@ describe("compileFilter", () => {
     );
     expect(filter(event({ start: "2021-11-01T12:00" }))).toBe(true);
     expect(filter(event({ start: "2021-11-02T12:00" }))).toBe(false);
+  });
+
+  test("compares a parsed offset time by the date written", () => {
+    const filter = compileFilter(
+      'start >= "2021-11-01" and start < "2021-11-02"'
+    );
+    expect(filter(parseEventSpec('start: "2021-11-01T00:30+01:00"'))).toBe(true);
   });
 
   test("still compares numbers", () => {

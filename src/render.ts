@@ -58,8 +58,13 @@ export class ItineraryRenderer
     } catch (e) {
       // FullCalendar rejects some options outright (an unknown
       // `initialView`, say); show why instead of an empty block.
-      this.calendar?.destroy();
+      try {
+        this.calendar?.destroy();
+      } catch {
+        // A half-built calendar may fail to tear down; it's removed below.
+      }
       this.calendar = null;
+      calendarEl.remove();
       this.showStatus(errorMessage(e), "itinerary-error");
       return;
     }
