@@ -9,6 +9,7 @@ import luxonFormatPlugin from "@fullcalendar/format-luxon3";
 
 import { EventFilter, compileFilter } from "./filter";
 import { describeEventTime } from "./format";
+import { RuleBook, ruleLabel } from "./rules";
 import { getCalendarOptions } from "./spec";
 import { EventStore, EventSubscriber } from "./store";
 import { DocumentPath, EventSpec, ItinerarySpec } from "./types";
@@ -36,7 +37,8 @@ export class ItineraryRenderer
     private readonly store: EventStore,
     /** Whether a source note exists, to say which ones don't yet. */
     private readonly sourceExists: (path: DocumentPath) => boolean = () =>
-      true
+      true,
+    private readonly ruleBook: RuleBook = new RuleBook()
   ) {
     super(containerEl);
     // A note listed twice (as a link and as a path, say) is shown once.
@@ -93,6 +95,9 @@ export class ItineraryRenderer
     }
 
     this.register(this.store.subscribe(this));
+    if (this.spec.rules !== false) {
+      this.register(this.ruleBook.subscribe(() => void this.refresh()));
+    }
     void this.refresh();
   }
 
@@ -146,9 +151,14 @@ export class ItineraryRenderer
           ...this.filterExpressions.map(
             (expression, idx) => `Filter #${idx} '${expression}' compiled`
           ),
+          ...this.describeRules(),
         ]
       : null;
-    const shown = events.filter((evt) => this.matchesFilters(evt, messages));
+    // Rules run before filters, so filters see the colors and orders rules
+    // set.
+    const shown = events
+      .map((evt) => this.applyRules(evt, messages))
+      .filter((evt) => this.matchesFilters(evt, messages));
 
     calendar.batchRendering(() => {
       calendar.removeAllEventSources();
@@ -176,6 +186,37 @@ export class ItineraryRenderer
     }
     messages?.push(`Event '${evt.title}' passed all filters`);
     return true;
+  }
+
+  private describeRules(): string[] {
+    if (this.spec.rules === false) {
+      return ["Event rules are off for this itinerary"];
+    }
+    return this.ruleBook.rules.flatMap(({ rule, error }, index) =>
+      error === undefined
+        ? []
+        : [`Rule '${ruleLabel(rule, index)}' was skipped: ${error}`]
+    );
+  }
+
+  private applyRules(evt: EventSpec, messages: string[] | null): EventSpec {
+    if (this.spec.rules === false) {
+      return evt;
+    }
+    const { event, matches, errors } = this.ruleBook.apply(evt);
+    for (const { name, error } of errors) {
+      messages?.push(
+        `Event '${evt.title}' couldn't be checked against rule '${name}': ${error}`
+      );
+    }
+    for (const { name, fields } of matches) {
+      messages?.push(
+        fields.length > 0
+          ? `Event '${evt.title}' matched rule '${name}', which set ${fields.join(", ")}`
+          : `Event '${evt.title}' matched rule '${name}', which changed nothing (the event or a higher rule sets the same fields)`
+      );
+    }
+    return event;
   }
 
 
@@ -216,6 +257,32 @@ export function toEventInput(event: EventSpec): EventInput {
     result.className = classes.join(" ");
   }
   return result;
+}
+
+/** An event's summary, redrawn when the vault's event rules change. */
+export class EventSummaryRenderer extends MarkdownRenderChild {
+  constructor(
+    containerEl: HTMLElement,
+    private readonly event: EventSpec,
+    private readonly ruleBook: RuleBook,
+    private readonly onEdit?: () => void
+  ) {
+    super(containerEl);
+  }
+
+  onload(): void {
+    this.draw();
+    this.register(this.ruleBook.subscribe(() => this.draw()));
+  }
+
+  private draw(): void {
+    this.containerEl.empty();
+    renderEvent(
+      this.containerEl,
+      this.ruleBook.apply(this.event).event,
+      this.onEdit
+    );
+  }
 }
 
 /** Renders an event's summary where its `itinerary-event` block appears,

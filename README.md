@@ -143,7 +143,8 @@ You can specify the following options for displaying your itinerary:
 
 - `source`: A link to the note (or a list of links to the notes) to gather events from, e.g. `"[[My Vacation Plans]]"`.  Links resolve exactly as they do elsewhere in Obsidian, so a note's name is usually enough even if it lives in a subfolder.  Defaults to events found in the same note the calendar is rendered in.  This field also accepts a path relative to your vault root (e.g. `Trips/Mexico.md`) instead of a link, but a link is recommended since the editor can autocomplete it.  A path may name a note you haven't created yet: the itinerary says so below the calendar, and shows the note's events once it exists.  If you rename or move a source note, open itineraries follow it, but Obsidian doesn't update links inside code blocks, so update the `source` too.
 - `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which events will be displayed. If unspecified, all events found in the selected sources will be included.
-- `debug`: If `true`, prints some debugging information below your rendered itinerary: which events each filter let through or left out (and why), and any calendar options that were translated for FullCalendar 7.
+- `debug`: If `true`, prints some debugging information below your rendered itinerary: which event rules each event matched and which options each rule set, which events each filter let through or left out (and why), and any calendar options that were translated for FullCalendar 7.
+- `rules`: If `false`, the vault's event rules (see "Event rules" below) don't apply to this itinerary, so its events are shown exactly as written.  Defaults to `true`.
 
 In addition to the above, you can provide any options described in [FullCalendar's documentation](https://fullcalendar.io/docs) (this plugin uses FullCalendar 7).  Date format options accept either FullCalendar's format objects or [Luxon format strings](https://moment.github.io/luxon/#/formatting?id=table-of-tokens) such as `titleFormat: "MMMM yyyy"`.  Particularly useful properties include:
 
@@ -171,6 +172,7 @@ You can specify the following options for events:
 - `timeZone`, `startTimeZone`, `endTimeZone`: The time zone your event's times were written in; see "Timezones" below.
 - `tag`: A single string tag or list of tags to associate with this event.  These are useful for specifically marking things like flights or hotel stays so you can generate calendars showing only one kind of event.
 - `hidden`: If `true`, this event will not be rendered individually in your notes where you've specified your event, and instead will appear only on relevant itineraries.  Defaults to `false`.
+- `order`: A number deciding where this event is drawn among the other events on the same day: lowest first, with events that have no `order` last.  See "Ordering calendar events" below.
 
 Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
 
@@ -190,6 +192,31 @@ A few things worth knowing about the syntax:
 - `not`, `and` and `or` need `true`/`false` values, so `not color` is an error for an event without a color, and `not tag` is an error for every event; use `"hotel" not in tag`, or a bare `tag` to pick out tagged events.  With `debug: true`, the itinerary explains why each event was left out.
 
 See "Filtering events based upon tag" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
+
+### Event rules
+
+If you'd like every hotel to be the same color, or always listed first on its day, you don't have to set `color` or `order` on each one: add an event rule in the plugin's settings instead.  Each rule has:
+
+- a name, shown in the settings and in an itinerary's `debug` output;
+- a "When" expression (see "Expressions" above) picking out the events it applies to, e.g. `"hotel" in tag`;
+- the event options to "Set" on those events, written as YAML, e.g.:
+
+  ```yaml
+  color: brown
+  order: 1
+  ```
+
+Rules apply to every event in your vault, both on itineraries and in the event summaries shown in your notes.  A few things to know about how they combine:
+
+- Every rule's expression is matched against the event as you wrote it, so one rule can't make another one match (a rule matching `color == "brown"` won't see a color another rule set).
+- Every matching rule applies, not just the first.  Where two rules set the same option, the one higher in the list wins; drag rules to reorder them.
+- Options written in an event always win over rules, option by option: an event with `color: red` stays red, but still gets its `order` from a rule.
+- Options are merged as a [JSON Merge Patch](https://datatracker.ietf.org/doc/html/rfc7386).  Since the event's own options win, a list (like `tag` or `classNames`) set by a rule only applies to events that don't set that list themselves; a rule can't add to an event's list, so it can't add a tag.
+- A rule's options mean what they mean in an event: `color` sets the background and border colors, and `hidden: no` is the same as `hidden: false`.  A rule can't set `title`, `start`, `end` or the time zones, since those are read before any rule applies, and a rule's `allDay` doesn't change an event whose times are dates (those are always all-day unless the event says otherwise).
+- Setting an option to `null` (`color: ~`) removes it, as long as the event itself doesn't set it, so a rule can undo a lower rule's option.
+- An itinerary's `filter`s see events after rules have applied, so you can filter on a color or order a rule set.
+
+To see a calendar without rules, set `rules: false` on that itinerary.
 
 ## Tips
 
@@ -320,11 +347,24 @@ Perhaps you're printing some types of events on a monthly calendar:
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/eventOrderBad.png)
 
-and would rather that the events be displayed in a consistent order based upon the color you set for them:
+and would rather that the events be displayed in a consistent order:
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/eventOrderGood.png)
 
-You can set a sort order for your calendar using the `eventOrder` option:
+The simplest way is to give your events an `order`.  Within a day, events are drawn lowest `order` first; events without an `order` come after all the ones that have one (so a negative `order` puts an event ahead of everything else), and events with the same `order` (or none) fall back to the calendar's usual ordering: by start time, then longest first, then all-day events, then by title.
+
+~~~
+```itinerary-event
+title: Hotel Nikko
+start: 2021-11-01
+end: 2021-11-04
+order: 1
+```
+~~~
+
+Itineraries always follow this order exactly, even where the calendar could fit events more compactly by moving later ones up into gaps, so the same kinds of events stay in the same place day to day.  Rather than setting `order` on every event, you can set it for a whole kind of event at once with an event rule; see "Event rules" above.
+
+If you'd rather sort by something else, set the itinerary's `eventOrder` option, which replaces the ordering above (including `order`, unless you list it) for that itinerary:
 
 ~~~
 ```itinerary
@@ -332,14 +372,16 @@ eventOrder: start,color
 ```
 ~~~
 
-This will suggest to the calendar that you'd like your events ordered first by their start time, and secondarily by their color.  The calendar will ignore this suggestion if it can arrange your calendar more compactly by ignoring this suggestion, though, but you can force it to always use your suggested ordering by using the `eventOrderStrict` option:
+This will suggest to the calendar that you'd like your events ordered first by their start time, and secondarily by their color.  An itinerary with its own `eventOrder` still follows it strictly, but you can let the calendar ignore your ordering where it can arrange events more compactly by setting `eventOrderStrict: false`; an itinerary that sets `eventOrderStrict` itself always gets its own setting:
 
 ~~~
 ```itinerary
 eventOrder: start,color
-eventOrderStrict: true
+eventOrderStrict: false
 ```
 ~~~
+
+The calendar compares `order` like any other field you name in `eventOrder` (e.g. `eventOrder: order,start`), except that it treats an `order` of `0` the same as no `order` at all.
 
 See [FullCalendar's docs](https://fullcalendar.io/docs/eventOrder) covering this for more details.
 

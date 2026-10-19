@@ -2,7 +2,13 @@ import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 // @vitest-environment jsdom
 import { parseEventSpec } from "./extractor";
 import { parseItinerarySpec } from "./spec";
-import { ItineraryRenderer, renderEvent, toEventInput } from "./render";
+import {
+  EventSummaryRenderer,
+  ItineraryRenderer,
+  renderEvent,
+  toEventInput,
+} from "./render";
+import { EventRule, RuleBook } from "./rules";
 import { EventStore } from "./store";
 import { EventSpec, ItinerarySpec } from "./types";
 
@@ -51,6 +57,32 @@ describe("renderEvent", () => {
     renderEvent(el, event({ title: "<b>bold</b>" }));
     expect(el.querySelector("b")).toBeNull();
     expect(el.querySelector(".name")?.textContent).toBe("<b>bold</b>");
+  });
+
+  test("follows the vault's event rules as they change", () => {
+    const el = document.createElement("div");
+    const book = new RuleBook();
+    const summary = new EventSummaryRenderer(
+      el,
+      parseEventSpec("title: Nikko\ntag: hotel"),
+      book
+    );
+    summary.load();
+    const background = () =>
+      el
+        .querySelector<HTMLElement>(".itinerary-event")
+        ?.style.getPropertyValue("--itinerary-event-background");
+    expect(background()).toBe("");
+
+    book.setRules([
+      { name: "Hotels", when: '"hotel" in tag', set: { color: "brown" } },
+    ]);
+    expect(background()).toBe("brown");
+    expect(el.querySelectorAll(".itinerary-event")).toHaveLength(1);
+
+    summary.unload();
+    book.setRules([]);
+    expect(background()).toBe("brown");
   });
 
   test("keeps its tags and edit button together, to wrap as one", () => {
@@ -211,6 +243,110 @@ describe("ItineraryRenderer", () => {
       ["Green", "green"],
     ]);
     renderer.unload();
+  });
+
+  test("orders a day's events by their order", async () => {
+    contents["trip.md"] = [
+      parseEventSpec("title: A\nstart: 2021-11-03\norder: 2"),
+      parseEventSpec("title: B\nstart: 2021-11-03"),
+      parseEventSpec("title: C\nstart: 2021-11-03\norder: 1"),
+    ];
+    const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
+    renderer.load();
+    await settle();
+
+    expect(shownTitles()).toEqual(["C", "A", "B"]);
+    renderer.unload();
+  });
+
+  describe("with event rules", () => {
+    const hotels: EventRule = {
+      name: "Hotels",
+      when: '"hotel" in tag',
+      set: { color: "brown", order: -1 },
+    };
+
+    function render(spec: ItinerarySpec, book: RuleBook): ItineraryRenderer {
+      const renderer = new ItineraryRenderer(
+        el,
+        spec,
+        ["trip.md"],
+        store,
+        () => true,
+        book
+      );
+      renderer.load();
+      return renderer;
+    }
+
+    beforeEach(() => {
+      contents["trip.md"] = [
+        parseEventSpec("title: A Parade\nstart: 2021-11-03"),
+        parseEventSpec("title: Nikko\nstart: 2021-11-03\ntag: hotel"),
+      ];
+    });
+
+    test("colors and orders matching events", async () => {
+      const renderer = render(listSpec, new RuleBook([hotels]));
+      await settle();
+
+      const rows = eventRows();
+      expect(rows.map((row) => row.title)).toEqual(["Nikko", "A Parade"]);
+      expect(rows[0].color).toBe("brown");
+      expect(rows[1].color).not.toBe("brown");
+      renderer.unload();
+    });
+
+    test("lets filters see what rules set", async () => {
+      const renderer = render(
+        { ...listSpec, filter: ['color == "brown"'] },
+        new RuleBook([hotels])
+      );
+      await settle();
+
+      expect(shownTitles()).toEqual(["Nikko"]);
+      renderer.unload();
+    });
+
+    test("ignores rules in an itinerary with rules: false", async () => {
+      const book = new RuleBook([hotels]);
+      const renderer = render({ ...listSpec, rules: false, debug: true }, book);
+      await settle();
+
+      expect(shownTitles()).toEqual(["A Parade", "Nikko"]);
+      expect(el.querySelector(".itinerary-debug")?.textContent).toMatch(
+        /Event rules are off for this itinerary/
+      );
+      renderer.unload();
+    });
+
+    test("redraws when the rules change", async () => {
+      const book = new RuleBook();
+      const renderer = render(listSpec, book);
+      await settle();
+      expect(shownTitles()).toEqual(["A Parade", "Nikko"]);
+
+      book.setRules([hotels]);
+      await settle();
+      expect(shownTitles()).toEqual(["Nikko", "A Parade"]);
+
+      renderer.unload();
+    });
+
+    test("says which rules matched in debug output", async () => {
+      const renderer = render(
+        { ...listSpec, debug: true },
+        new RuleBook([hotels, { name: "Broken", when: "((", set: {} }])
+      );
+      await settle();
+
+      const debug = el.querySelector(".itinerary-debug")?.textContent ?? "";
+      expect(debug).toMatch(
+        /Event 'Nikko' matched rule 'Hotels', which set color, order/
+      );
+      expect(debug).toMatch(/Rule 'Broken' was skipped: .+/);
+      renderer.unload();
+    });
   });
 
   test("passes per-event classNames on as className", () => {

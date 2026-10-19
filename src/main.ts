@@ -17,17 +17,25 @@ import {
 import { eventBlock, padForInsertion, tagsInNote } from "./eventForm";
 import { EventModal } from "./eventModal";
 import { getEventInformation, parseEventSpec } from "./extractor";
-import { ItineraryRenderer, renderErrorPre, renderEvent } from "./render";
+import {
+  EventSummaryRenderer,
+  ItineraryRenderer,
+  renderErrorPre,
+} from "./render";
+import { EventRule, RuleBook, normalizeRules } from "./rules";
+import { ItinerarySettingTab, RuleSettingsHost } from "./settings";
 import { SourceLookup, resolveSourcePath } from "./sources";
 import { parseItinerarySpec } from "./spec";
 import { EventStore } from "./store";
 import { DocumentPath, EventSpec } from "./types";
-import { errorMessage, getArrayForArrayOrObject } from "./util";
+import { errorMessage, getArrayForArrayOrObject, isRecord } from "./util";
 
-export default class Itinerary extends Plugin {
+export default class Itinerary extends Plugin implements RuleSettingsHost {
   private store = new EventStore((path) => this.readEvents(path));
+  private ruleBook = new RuleBook();
+  rules: EventRule[] = [];
 
-  onload(): void {
+  async onload(): Promise<void> {
     // Keep rendered itineraries current as the notes they draw from change.
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
@@ -88,6 +96,25 @@ export default class Itinerary extends Plugin {
         }).open();
       },
     });
+
+    // Loaded last, so blocks render even if the settings can't be read;
+    // everything drawn so far redraws once the rules arrive.
+    try {
+      const data: unknown = await this.loadData();
+      this.rules = normalizeRules(isRecord(data) ? data.rules : undefined);
+      this.ruleBook.setRules(this.rules);
+    } catch (e) {
+      // No settings tab, so nothing can save over the rules that couldn't
+      // be read (data.json edited by hand, say).
+      new Notice(`Itinerary couldn't load its event rules: ${errorMessage(e)}`);
+      return;
+    }
+    this.addSettingTab(new ItinerarySettingTab(this.app, this));
+  }
+
+  async saveRules(): Promise<void> {
+    this.ruleBook.setRules(this.rules);
+    await this.saveData({ rules: this.rules });
   }
 
   /** Replaces the event block's body. A note open in an editor is changed
@@ -169,7 +196,8 @@ export default class Itinerary extends Plugin {
           spec,
           sourcePaths,
           this.store,
-          (path) => this.app.vault.getFileByPath(path) !== null
+          (path) => this.app.vault.getFileByPath(path) !== null,
+          this.ruleBook
         )
       );
     } catch (e) {
@@ -183,8 +211,10 @@ export default class Itinerary extends Plugin {
     ctx: MarkdownPostProcessorContext
   ): void {
     try {
-      renderEvent(el, parseEventSpec(source), () =>
-        this.editEvent(source, el, ctx)
+      ctx.addChild(
+        new EventSummaryRenderer(el, parseEventSpec(source), this.ruleBook, () =>
+          this.editEvent(source, el, ctx)
+        )
       );
     } catch (e) {
       renderErrorPre(el, errorMessage(e));

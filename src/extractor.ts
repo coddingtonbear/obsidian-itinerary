@@ -73,6 +73,22 @@ export function readBoolean(
   return result;
 }
 
+export function readNumber(
+  spec: Record<string, unknown>,
+  field: string
+): number | undefined {
+  const value = spec[field];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const result =
+    typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  if (typeof result !== "number" || !Number.isFinite(result)) {
+    throw new Error(`Event field "${field}" must be a number.`);
+  }
+  return result;
+}
+
 export function readTags(
   spec: Record<string, unknown>
 ): string | string[] | undefined {
@@ -300,6 +316,7 @@ export function parseEventSpec(eventSpec: string): EventSpec {
     endTimeZone,
     tag: readTags(spec),
     hidden: readBoolean(spec, "hidden"),
+    order: readNumber(spec, "order"),
     title: readString(spec, "title") || DefaultTitle,
     // Colors are left unset unless given, so the itinerary's eventColor
     // and the theme's accent apply to the rest.
