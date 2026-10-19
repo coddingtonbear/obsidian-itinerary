@@ -11,11 +11,12 @@
 | `src/filter.ts` | Compiles `filter` expressions with filtrex. |
 | `src/store.ts` | Caches each document's events and notifies itineraries when they change. |
 | `src/format.ts` | Describes an event's time for its summary chip. |
-| `src/render.ts` | Renders itineraries (FullCalendar) and event summaries. |
-| `styles.css` | Plugin styles, including the reset that shields FullCalendar's tables from Obsidian's table styling. |
-| `mocks/obsidian.ts` | Runtime stand-in for the `obsidian` package in unit tests. |
+| `src/compat.ts` | Translates FullCalendar 6 options in itineraries to their FullCalendar 7 names. |
+| `src/render.ts` | Renders itineraries (FullCalendar 7) and event summaries. |
+| `src/styles.css` | Plugin styles. esbuild bundles it with FullCalendar's stylesheets into `styles.css` (build output, not committed), mapping FullCalendar's theme variables onto Obsidian's. |
+| `mocks/obsidian.ts` | Runtime stand-in for the `obsidian` package in unit tests (Vitest). |
 
-Keep logic out of `main.ts` and `render.ts` where possible: everything else is unit-tested without Obsidian.
+Keep logic out of `main.ts` and `render.ts` where possible: everything else is unit-tested without Obsidian. `render.ts` is tested under jsdom against a real FullCalendar; FullCalendar 7 generates its class names, so find its elements by ARIA role, not class.
 
 ## Commit Process
 

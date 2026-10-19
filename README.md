@@ -127,7 +127,7 @@ You can specify the following options for displaying your itinerary:
 - `filter`: A list of filter expressions (see "Expressions" below) or a single filter expression to use for limiting which events will be displayed. If unspecified, all events found in the selected sources will be included.
 - `debug`: Will cause some debugging information to be printed below your rendered itinerary.
 
-In addition to the above, you can provide any options described here: https://fullcalendar.io/docs; particularly useful properties include:
+In addition to the above, you can provide any options described in [FullCalendar's documentation](https://fullcalendar.io/docs) (this plugin uses FullCalendar 7); particularly useful properties include:
 
 - `initialDate`: The date to focus on your calendar.  This can be useful for displaying a different month than your current date, for example.  Defaults to the current date.
 - `initialView`: What kind of calendar to show; by default, a `dayGridMonth` view will be shown, but the options include:
@@ -156,8 +156,8 @@ You can specify the following options for events:
 
 Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
 
-- `color`: For marking your events in a particular color
-- `allDay`: For marking your event as an "all-day" event.
+- `color`: For marking your events in a particular color.  You can also set `backgroundColor`, `borderColor` and `textColor` separately; the calendar draws events in `backgroundColor` (falling back to `borderColor`) with `textColor` text, and the event summaries in your notes use all three.
+- `allDay`: For marking your event as an "all-day" event.  An event whose `start` and `end` are dates without times is all-day even if you leave this out.
 
 ### Expressions
 
@@ -290,11 +290,11 @@ Maybe you don't want to see the toolbar above your rendered calendar?
 
 ~~~
 ```itinerary
-headerToolbar:
+headerToolbar: false
 ```
 ~~~
 
-See https://fullcalendar.io/docs/headerToolbar for more information.
+By default, itineraries show the calendar's title on the left and "Today", previous and next buttons on the right.  See https://fullcalendar.io/docs/headerToolbar for how to arrange it differently.
 
 ### Ordering calendar events
 
@@ -324,6 +324,20 @@ eventOrderStrict: true
 ~~~
 
 See [FullCalendar's docs](https://fullcalendar.io/docs/eventOrder) covering this for more details.
+
+## Upgrading from version 1
+
+Version 2 of this plugin moves from FullCalendar 5 to FullCalendar 7, which renamed or removed a number of calendar options.  Itineraries you've already written should keep working:
+
+- Options FullCalendar renamed (for example `slotLabelFormat`, now `slotHeaderFormat`, or `eventBackgroundColor`, now `eventColor`) are translated to their new names, and `buttonText` is folded into the new `buttons` option.  Options FullCalendar removed are ignored.  Add `debug: true` to an itinerary to see what was translated.
+- The header toolbar is still shown unless you hide it, even though FullCalendar 7 hides it by default.
+
+A few things do behave differently:
+
+- The calendar looks somewhat different, and takes its colors from your Obsidian theme.
+- Renamed options that only make sense with custom CSS (those ending in `ClassNames`) are not translated; see [FullCalendar's upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).
+- Filters are stricter about types; see "Expressions" above.
+- The plugin now requires Obsidian 1.13.1 or newer.
 
 ## Development
 
