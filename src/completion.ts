@@ -49,6 +49,7 @@ export const EventFields: readonly FieldInfo[] = [
     description: "Show only on itineraries, not here",
     values: "boolean",
   },
+  { name: "order", description: "Where it's drawn among its day's events" },
   { name: "color", description: "Color to draw it in" },
   { name: "backgroundColor", description: "Fill color" },
   { name: "borderColor", description: "Border color of its summary" },
