@@ -51,6 +51,19 @@ class ListSuggest extends AbstractInputSuggest<string> {
 
 let zoneList: string[] | null = null;
 
+/** Obsidian greys an empty date field's "mm/dd/yyyy" only while it has
+ * the is-empty class, which its own date fields keep up to date. */
+function trackEmpty(text: TextComponent): void {
+  text.inputEl.addEventListener("input", () =>
+    text.inputEl.toggleClass("is-empty", text.inputEl.value === "")
+  );
+}
+
+function setDate(text: TextComponent, value: string): void {
+  text.setValue(value);
+  text.inputEl.toggleClass("is-empty", text.inputEl.value === "");
+}
+
 function timeZones(): string[] {
   if (zoneList === null) {
     const zones = Intl.supportedValuesOf("timeZone");
@@ -117,11 +130,7 @@ export class EventModal extends Modal {
     new Setting(contentEl).setName("Start").addText((text) => {
       this.startInput = text;
       text.onChange((value) => (this.values.start = value));
-    });
-
-    this.endSetting = new Setting(contentEl).addText((text) => {
-      this.endInput = text;
-      text.onChange((value) => (this.values.end = value));
+      trackEmpty(text);
     });
 
     this.startTimeZoneSetting = new Setting(contentEl)
@@ -134,10 +143,17 @@ export class EventModal extends Modal {
         text.setValue(this.values.startTimeZone);
         text.onChange((value) => {
           this.values = setStartTimeZone(this.values, value);
+          // Set by the time anything's typed, though made further down.
           this.endTimeZoneInput.setValue(this.values.endTimeZone);
         });
         this.addTimeZoneSuggest(text);
       });
+
+    this.endSetting = new Setting(contentEl).addText((text) => {
+      this.endInput = text;
+      text.onChange((value) => (this.values.end = value));
+      trackEmpty(text);
+    });
 
     this.endTimeZoneSetting = new Setting(contentEl)
       .setName("End time zone")
@@ -219,9 +235,9 @@ export class EventModal extends Modal {
     this.values = switchAllDay(this.values, allDay);
     const type = allDay ? "date" : "datetime-local";
     this.startInput.inputEl.type = type;
-    this.startInput.setValue(this.values.start);
+    setDate(this.startInput, this.values.start);
     this.endInput.inputEl.type = type;
-    this.endInput.setValue(this.values.end);
+    setDate(this.endInput, this.values.end);
     // Problems from the last attempt are worded for the other kind of time.
     this.problemsEl.empty();
 
