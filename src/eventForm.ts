@@ -49,21 +49,33 @@ export function switchAllDay(
     ...values,
     allDay,
     start: allDay || start === "" ? start : `${start}T00:00`,
-    end: allDay ? toLastDay(values.end, start) : toTimedEnd(values.end),
+    end: allDay ? toLastDay(values.end, values.start) : toTimedEnd(values.end),
   };
 }
 
-function toLastDay(end: string, startDate: string): string {
+function isSameTime(a: string, b: string): boolean {
+  try {
+    return Temporal.PlainDateTime.compare(a, b) === 0;
+  } catch {
+    return false;
+  }
+}
+
+function toLastDay(end: string, start: string): string {
   if (end === "") {
     return end;
   }
   const date = end.slice(0, 10);
   try {
     const time = Temporal.PlainDateTime.from(end);
-    if (time.hour === 0 && time.minute === 0 && time.second === 0) {
-      const dayBefore = time.toPlainDate().subtract({ days: 1 }).toString();
-      // A zero-length event at midnight keeps its one day.
-      return dayBefore < startDate ? date : dayBefore;
+    // A zero-length event at midnight keeps its one day.
+    if (
+      time.hour === 0 &&
+      time.minute === 0 &&
+      time.second === 0 &&
+      !isSameTime(end, start)
+    ) {
+      return time.toPlainDate().subtract({ days: 1 }).toString();
     }
   } catch {
     // Not a complete date-time; keep what date there is.

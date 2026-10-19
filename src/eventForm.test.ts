@@ -284,6 +284,17 @@ describe("switchAllDay", () => {
     ).toEqual(["2024-01-01", "2024-01-01"]);
   });
 
+  test("keeps an end before the start before it", () => {
+    const values = switchAllDay(
+      form({ title: "A", start: "2024-01-02T09:00", end: "2024-01-02T00:00" }),
+      true
+    );
+    expect(times(values)).toEqual(["2024-01-02", "2024-01-01"]);
+    expect(validateEventForm(values)).toEqual([
+      "The last day is before the start.",
+    ]);
+  });
+
   test("ends at midnight after the last day when switching from all-day", () => {
     const values = switchAllDay(
       form({ allDay: true, start: "2024-01-01", end: "2024-01-03" }),

@@ -18,18 +18,17 @@ import {
   validateEventForm,
 } from "./eventForm";
 
-/** Suggests from a list of values, replacing the input's text with what
- * `complete` makes of the chosen one and passing the result to `onPick`
- * (setting the input's value fires no `input` event). */
+/** Suggests from a list of values, replacing a text field's value with
+ * what `complete` makes of the chosen one. Setting the value fires no
+ * `input` event, so the field's `onChange` is invoked directly. */
 class ListSuggest extends AbstractInputSuggest<string> {
   constructor(
     app: App,
-    inputEl: HTMLInputElement,
+    private text: TextComponent,
     private suggest: (query: string) => string[],
-    private complete: (query: string, value: string) => string,
-    private onPick: (text: string) => void
+    private complete: (query: string, value: string) => string
   ) {
-    super(app, inputEl);
+    super(app, text.inputEl);
   }
 
   protected getSuggestions(query: string): string[] {
@@ -41,9 +40,8 @@ class ListSuggest extends AbstractInputSuggest<string> {
   }
 
   selectSuggestion(value: string): void {
-    const text = this.complete(this.getValue(), value);
-    this.setValue(text);
-    this.onPick(text);
+    this.text.setValue(this.complete(this.text.getValue(), value));
+    this.text.onChanged();
     this.close();
   }
 }
@@ -114,10 +112,9 @@ export class EventModal extends Modal {
         text.onChange((value) => (this.values.timeZone = value));
         new ListSuggest(
           this.app,
-          text.inputEl,
+          text,
           (query) => suggestTimeZones(query, timeZones()),
-          (_, zone) => zone,
-          (zone) => (this.values.timeZone = zone)
+          (_, zone) => zone
         );
       });
 
@@ -128,10 +125,9 @@ export class EventModal extends Modal {
         text.onChange((value) => (this.values.tags = parseTagInput(value)));
         new ListSuggest(
           this.app,
-          text.inputEl,
+          text,
           (query) => suggestTags(query, this.knownTags),
-          completeTag,
-          (tags) => (this.values.tags = parseTagInput(tags))
+          completeTag
         );
       });
 
@@ -158,11 +154,13 @@ export class EventModal extends Modal {
       );
 
     // Enter in a field submits the form; on a button or the toggle it does
-    // what it does there (so Enter on Cancel cancels).
+    // what it does there (so Enter on Cancel cancels). instanceOf, unlike
+    // instanceof, also works when the modal is in a popout window.
     this.scope.register([], "Enter", (evt) => {
+      const target = evt.targetNode;
       if (
-        evt.target instanceof HTMLInputElement &&
-        evt.target.type !== "checkbox" &&
+        target?.instanceOf(HTMLInputElement) &&
+        target.type !== "checkbox" &&
         !evt.isComposing
       ) {
         evt.preventDefault();
