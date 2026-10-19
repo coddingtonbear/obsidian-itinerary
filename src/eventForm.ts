@@ -352,6 +352,21 @@ export function parseTagInput(text: string): string[] {
   return cleanTags(text.split(","));
 }
 
+/** The tag field's text for an event's tags. A tag containing a comma
+ * can't be written there, so it's left out, and kept by tagsFromField. */
+export function tagFieldText(tags: string[]): string {
+  return tags.filter((tag) => !tag.includes(",")).join(", ");
+}
+
+/** The tags after the tag field changes to `text`: those entered, then
+ * any of the event's `previous` tags the field couldn't show. */
+export function tagsFromField(text: string, previous: string[]): string[] {
+  return cleanTags([
+    ...parseTagInput(text),
+    ...previous.filter((tag) => tag.includes(",")),
+  ]);
+}
+
 /** Every tag used by an event in a note, in order of first use. Tags
  * containing a comma are left out: the form's tag field is
  * comma-separated, so it can't enter them. */
