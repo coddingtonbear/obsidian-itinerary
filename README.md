@@ -159,6 +159,24 @@ Additionally, you can provide any options described here:  https://fullcalendar.
 - `color`: For marking your events in a particular color.  You can also set `backgroundColor`, `borderColor` and `textColor` separately; the calendar draws events in `backgroundColor` with `textColor` text, and the event summaries in your notes use all three.
 - `allDay`: For marking your event as an "all-day" event.  An event whose `start` and `end` are dates without times is all-day even if you leave this out.
 
+You can add fields of your own, too (to filter on, say); they're shown to filters like any other option.
+
+#### Mistakes the event summary points out
+
+Where an event block is rendered in your note, it points out likely mistakes.  These show up even for `hidden` events, which would otherwise go unnoticed.
+
+Errors replace the event's summary, since the event can't appear on any calendar:
+
+- There is no `start` (unless the event uses FullCalendar's `date`, or recurs with `daysOfWeek`, `startTime`, `startRecur` and friends).
+- The `start` can't be read as a date, such as `start: next tuesday`.  Write it as an ISO date or time: `2021-11-01` or `2021-11-01T12:00`.
+
+Warnings appear in a small line under the summary; the event still appears on calendars:
+
+- A field that looks like a misspelling of a known one, such as `colour`, `tags`, `timezone` or `titel`.  Fields that don't resemble a known one are left alone, since they may be your own.
+- There is no `title`, so the event is called "Untitled event".
+- The `end` is before the `start`, so calendars ignore the `end`.
+- Only one of `startTimeZone` and `endTimeZone` is set, so the other time is read in the event's `timeZone`, or the itinerary's time zone if it has none.
+
 ### Expressions
 
 This library uses `filtrex` for expression evaluation; see their documentation to see more information about the expression syntax and what functions are available: https://github.com/cshaa/filtrex#expressions.

@@ -58,6 +58,37 @@ describe("renderEvent", () => {
     renderEvent(el, event({ hidden: true }));
     expect(el.childElementCount).toBe(0);
   });
+
+  test("shows warnings under the summary", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({}), { errors: [], warnings: ["First", "Second"] });
+    expect(el.querySelector(".itinerary-event")).not.toBeNull();
+    expect(
+      Array.from(el.querySelectorAll(".itinerary-warning")).map(
+        (w) => w.textContent
+      )
+    ).toEqual(["First", "Second"]);
+    expect(el.lastElementChild?.classList).toContain("itinerary-warnings");
+  });
+
+  test("shows errors instead of the summary", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({}), { errors: ["No start"], warnings: ["Odd"] });
+    expect(el.querySelector(".itinerary-event")).toBeNull();
+    expect(el.querySelector(".itinerary-error")?.textContent).toBe("No start");
+    expect(el.querySelector(".itinerary-warning")?.textContent).toBe("Odd");
+  });
+
+  test("shows a hidden event's problems, but not its summary", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({ hidden: true }), {
+      errors: ["No start"],
+      warnings: ["Odd"],
+    });
+    expect(el.querySelector(".itinerary-event")).toBeNull();
+    expect(el.querySelector(".itinerary-error")?.textContent).toBe("No start");
+    expect(el.querySelector(".itinerary-warning")?.textContent).toBe("Odd");
+  });
 });
 
 describe("ItineraryRenderer", () => {

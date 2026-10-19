@@ -27,6 +27,12 @@
   padding: var(--size-4-1) 0;
 }
 
+.itinerary-warnings {
+  color: var(--text-warning);
+  font-size: var(--font-ui-small);
+  margin-bottom: var(--size-4-1);
+}
+
 .itinerary-event {
   display: flex;
   flex-wrap: wrap;

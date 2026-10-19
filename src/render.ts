@@ -7,6 +7,7 @@ import timeGridPlugin from "fullcalendar/timegrid";
 import classicTheme from "fullcalendar/themes/classic";
 import luxonFormatPlugin from "@fullcalendar/format-luxon3";
 
+import { EventProblems } from "./checks";
 import { EventFilter, compileFilter } from "./filter";
 import { describeEventTime } from "./format";
 import { getCalendarOptions } from "./spec";
@@ -218,12 +219,31 @@ export function toEventInput(event: EventSpec): EventInput {
   return result;
 }
 
-/** Renders an event's summary where its `itinerary-event` block appears. */
-export function renderEvent(container: HTMLElement, event: EventSpec): void {
-  if (event.hidden) {
-    return;
+/** Renders an event's summary where its `itinerary-event` block appears,
+ * with any likely mistakes found in the block. An event with errors can't
+ * appear on a calendar, so it gets the errors instead of a summary. A
+ * hidden event shows only its problems, which would otherwise go unseen. */
+export function renderEvent(
+  container: HTMLElement,
+  event: EventSpec,
+  problems: EventProblems = { errors: [], warnings: [] }
+): void {
+  if (problems.errors.length > 0) {
+    renderErrorPre(container, problems.errors.join("\n"));
+  } else if (!event.hidden) {
+    renderEventSummary(container, event);
   }
+  if (problems.warnings.length > 0) {
+    const list = container.createDiv({
+      cls: ["itinerary", "itinerary-warnings"],
+    });
+    for (const warning of problems.warnings) {
+      list.createDiv({ cls: "itinerary-warning", text: warning });
+    }
+  }
+}
 
+function renderEventSummary(container: HTMLElement, event: EventSpec): void {
   const element = container.createDiv({
     cls: ["itinerary", "itinerary-event"],
   });

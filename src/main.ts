@@ -1,6 +1,7 @@
 import { MarkdownPostProcessorContext, Plugin, TFile } from "obsidian";
 
-import { getEventInformation, parseEventSpec } from "./extractor";
+import { readEventBlock } from "./checks";
+import { getEventInformation } from "./extractor";
 import { ItineraryRenderer, renderErrorPre, renderEvent } from "./render";
 import { SourceLookup, resolveSourcePath } from "./sources";
 import { parseItinerarySpec } from "./spec";
@@ -106,7 +107,8 @@ export default class Itinerary extends Plugin {
 
   private renderEvent(source: string, el: HTMLElement): void {
     try {
-      renderEvent(el, parseEventSpec(source));
+      const { event, ...problems } = readEventBlock(source);
+      renderEvent(el, event, problems);
     } catch (e) {
       renderErrorPre(el, errorMessage(e));
     }
