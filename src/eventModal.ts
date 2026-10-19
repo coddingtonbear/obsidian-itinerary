@@ -103,11 +103,6 @@ export class EventModal extends Modal {
       text.onChange((value) => (this.values.start = value));
     });
 
-    this.endSetting = new Setting(contentEl).addText((text) => {
-      this.endInput = text;
-      text.onChange((value) => (this.values.end = value));
-    });
-
     this.startTimeZoneSetting = new Setting(contentEl)
       .setName("Start time zone")
       .setDesc(
@@ -118,10 +113,16 @@ export class EventModal extends Modal {
         text.setValue(this.values.startTimeZone);
         text.onChange((value) => {
           this.values = setStartTimeZone(this.values, value);
+          // Set by the time anything's typed, though made further down.
           this.endTimeZoneInput.setValue(this.values.endTimeZone);
         });
         this.addTimeZoneSuggest(text);
       });
+
+    this.endSetting = new Setting(contentEl).addText((text) => {
+      this.endInput = text;
+      text.onChange((value) => (this.values.end = value));
+    });
 
     this.endTimeZoneSetting = new Setting(contentEl)
       .setName("End time zone")
