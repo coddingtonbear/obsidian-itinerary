@@ -4,6 +4,7 @@ import {
   PluginSettingTab,
   SettingDefinitionItem,
   SettingDefinitionPage,
+  TextComponent,
   debounce,
 } from "obsidian";
 
@@ -13,7 +14,6 @@ import {
   compileRules,
   parseRulePatch,
   readRuleField,
-  ruleLabel,
   writeRuleField,
 } from "./rules";
 import { errorMessage } from "./util";
@@ -24,6 +24,14 @@ export interface RuleSettingsHost extends Plugin {
   /** Saves `rules` and applies them to open itineraries and summaries. */
   saveRules(): Promise<void>;
 }
+
+/** Obsidian 1.14 finds an open page by its `id`, or its name without one,
+ * but doesn't declare `id`. Rule pages need it: a rule's name changes as
+ * it's typed, and two rules can share one. */
+type RulePage = SettingDefinitionPage & { id: string };
+
+/** Shown for a rule until it's given a name. */
+const UnnamedRule = "Unnamed rule";
 
 /** Settings tab listing the vault's event rules, one page per rule. The
  * list order is their priority, so rules can be dragged to reorder them.
@@ -40,10 +48,13 @@ export class ItinerarySettingTab extends PluginSettingTab {
     const rules = this.host.rules;
     return [
       {
+        name: "Event rules",
+        desc: "An event rule sets options on every event matching a filter expression, so you can make every hotel brown, or list it first on its day, without writing color or order in each one. Every matching rule applies: where two set the same option, the higher one in the list wins, and options written in an event win over any rule.",
+      },
+      {
         type: "list",
-        heading: "Event rules",
-        emptyState:
-          "No rules yet. A rule sets options on every event matching an expression, such as one color for every hotel.",
+        heading: "Rules",
+        emptyState: "No rules yet.",
         items: rules.map((rule, index) => this.rulePage(rule, index)),
         addItem: {
           name: "Add rule",
@@ -72,8 +83,9 @@ export class ItinerarySettingTab extends PluginSettingTab {
   setControlValue(key: string, value: unknown): void {
     if (typeof value === "string" && writeRuleField(this.host.rules, key, value)) {
       // Not update(): that would re-render the field being typed in, and
-      // rewrite "Set" from the saved options mid-edit. The list's names and
-      // warnings catch up the next time it's shown.
+      // rewrite "Set" from the saved options mid-edit. The list catches up
+      // when the rule's page is left (see the Name row).
+      this.listStale = true;
       this.saveSoon();
     }
   }
@@ -85,10 +97,14 @@ export class ItinerarySettingTab extends PluginSettingTab {
     true
   );
 
-  private rulePage(rule: EventRule, index: number): SettingDefinitionPage {
+  /** Whether a rule changed since the list was last drawn. */
+  private listStale = false;
+
+  private rulePage(rule: EventRule, index: number): RulePage {
     return {
       type: "page",
-      name: ruleLabel(rule, index),
+      id: `rule-${index}`,
+      name: rule.name.trim() !== "" ? rule.name : UnnamedRule,
       desc: rule.when,
       // Also catches options saved before they were checked.
       status: () =>
@@ -97,10 +113,29 @@ export class ItinerarySettingTab extends PluginSettingTab {
         {
           name: "Name",
           desc: "Shown in this list and in an itinerary's debug output.",
-          control: {
-            type: "text",
-            key: `rules.${index}.name`,
-            placeholder: "Hotels",
+          // Not a control, so leaving the page can redraw the list (and
+          // this page's title, next time) with the rule as edited: the list
+          // is drawn from definitions made before the edit. Any row would
+          // do; this one is torn down along with the page.
+          render: (setting) => {
+            setting.addText((text: TextComponent) =>
+              text
+                .setPlaceholder("Hotels")
+                .setValue(rule.name)
+                .onChange((value) => {
+                  rule.name = value;
+                  this.listStale = true;
+                  this.saveSoon();
+                })
+            );
+            return () => {
+              if (this.listStale) {
+                this.listStale = false;
+                // After Obsidian finishes leaving the page, which draws
+                // the list from the definitions it has.
+                window.setTimeout(() => this.update());
+              }
+            };
           },
         },
         {
