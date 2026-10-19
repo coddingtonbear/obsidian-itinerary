@@ -1,8 +1,8 @@
 import { parseYaml } from "obsidian";
-import { DateTime } from "luxon";
+import { Temporal } from "temporal-polyfill";
 
 import { EventSpec } from "./types";
-import { isRecord } from "./util";
+import { errorMessage, isRecord } from "./util";
 
 const DefaultTextColor = "white";
 const DefaultColor = "blue";
@@ -87,7 +87,14 @@ function readTags(
   return readString(spec, "tag");
 }
 
-/** Interprets a wall-clock time in the given zone as an absolute ISO time. */
+/** Whether an ISO time names its own offset (`Z` or `+05:00`). */
+function hasOffset(time: string): boolean {
+  return /(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$/.test(time) && time.includes("T");
+}
+
+/** Interprets a wall-clock time in the given zone as an absolute ISO time.
+ * A time that already names its offset is the same instant, shown in that
+ * zone. */
 function applyZone(
   field: string,
   time: string | undefined,
@@ -96,16 +103,16 @@ function applyZone(
   if (time === undefined || zone === undefined) {
     return time;
   }
-  const zoned = DateTime.fromISO(time, { zone });
-  const iso = zoned.toISO();
-  if (iso === null) {
+  try {
+    const zoned = hasOffset(time)
+      ? Temporal.Instant.from(time).toZonedDateTimeISO(zone)
+      : Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
+    return zoned.toString({ timeZoneName: "never" });
+  } catch (e) {
     throw new Error(
-      `Could not interpret event ${field} "${time}" in time zone "${zone}": ${
-        zoned.invalidExplanation ?? zoned.invalidReason ?? "invalid"
-      }`
+      `Could not interpret event ${field} "${time}" in time zone "${zone}": ${errorMessage(e)}`
     );
   }
-  return iso;
 }
 
 export function parseEventSpec(eventSpec: string): EventSpec {

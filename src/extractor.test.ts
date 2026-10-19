@@ -1,5 +1,4 @@
 import { describe, test, expect } from "vitest";
-import { DateTime } from "luxon";
 
 import { getEventInformation, parseEventSpec } from "./extractor";
 
@@ -37,10 +36,10 @@ describe("parseEventSpec", () => {
     const evt = parseEventSpec(
       "start: 2021-12-31T18:00\nend: 2022-01-01T04:00\ntimeZone: America/New_York"
     );
-    expect(DateTime.fromISO(evt.start as string).toUTC().toISO()).toBe(
+    expect(new Date(evt.start as string).toISOString()).toBe(
       "2021-12-31T23:00:00.000Z"
     );
-    expect(DateTime.fromISO(evt.end as string).toUTC().toISO()).toBe(
+    expect(new Date(evt.end as string).toISOString()).toBe(
       "2022-01-01T09:00:00.000Z"
     );
   });
@@ -55,10 +54,10 @@ describe("parseEventSpec", () => {
         "timeZone: Europe/London",
       ].join("\n")
     );
-    expect(DateTime.fromISO(evt.start as string).toUTC().toISO()).toBe(
+    expect(new Date(evt.start as string).toISOString()).toBe(
       "2022-08-07T17:30:00.000Z"
     );
-    expect(DateTime.fromISO(evt.end as string).toUTC().toISO()).toBe(
+    expect(new Date(evt.end as string).toISOString()).toBe(
       "2022-08-08T00:49:00.000Z"
     );
   });
@@ -125,6 +124,20 @@ describe("parseEventSpec validation", () => {
 
   test("accepts an empty block", () => {
     expect(parseEventSpec("").title).toBe("Untitled event");
+  });
+
+  test("keeps the instant of a time that names its offset", () => {
+    const evt = parseEventSpec(
+      "start: 2021-12-31T23:00:00Z\ntimeZone: America/New_York"
+    );
+    expect(evt.start).toBe("2021-12-31T18:00:00-05:00");
+  });
+
+  test("interprets a date-only time as midnight in timeZone", () => {
+    const evt = parseEventSpec(
+      "start: 2021-12-31\ntimeZone: America/New_York"
+    );
+    expect(evt.start).toBe("2021-12-31T00:00:00-05:00");
   });
 
   test("rejects an unknown time zone", () => {
