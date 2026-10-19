@@ -337,6 +337,7 @@ A few things do behave differently:
 - The calendar looks somewhat different, and takes its colors from your Obsidian theme.  Events without a `color` of their own are drawn in the itinerary's `eventColor` if it sets one, or your theme's accent color, instead of always blue.
 - An event's `borderColor` now only affects the event summary in your note; FullCalendar 7 draws each event in a single color.
 - Renamed options that only make sense with custom CSS (those ending in `ClassNames`) are not translated; see [FullCalendar's upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).
+- An event whose `start` and `end` are dates without times is drawn as all-day even when it has a `timeZone`; version 1 drew it as a timed event starting at midnight in that zone.  Add `allDay: false` to keep the old behavior.
 - Filters are stricter about types; see "Expressions" above.
 - The plugin now requires Obsidian 1.13.1 or newer.
 

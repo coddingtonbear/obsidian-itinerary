@@ -142,6 +142,36 @@ describe("parseEventSpec validation", () => {
     );
   });
 
+  test("writes a time naming its offset or zone as UTC when no zone is set", () => {
+    // FullCalendar's own parser rejects bracketed zones.
+    const evt = parseEventSpec('start: "2021-11-01T12:00+01:00[Europe/Paris]"');
+    expect(evt.start).toBe("2021-11-01T11:00:00Z");
+  });
+
+  test("leaves a plain wall-clock time alone when no zone is set", () => {
+    expect(parseEventSpec("start: 2021-11-01T12:00").start).toBe(
+      "2021-11-01T12:00"
+    );
+  });
+
+  test("keeps the zone a time names in brackets without an offset", () => {
+    const evt = parseEventSpec(
+      'start: "2021-11-01T12:00[Europe/Paris]"\ntimeZone: America/New_York'
+    );
+    expect(new Date(evt.start as string).toISOString()).toBe(
+      "2021-11-01T11:00:00.000Z"
+    );
+  });
+
+  test("zones a date-only start when the end has a time", () => {
+    // The event is timed, so its start is midnight in the event's zone.
+    const evt = parseEventSpec(
+      "start: 2021-11-01\nend: 2021-11-03T10:00\ntimeZone: America/New_York"
+    );
+    expect(evt.start).toBe("2021-11-01T00:00:00-04:00");
+    expect(evt.end).toBe("2021-11-03T10:00:00-04:00");
+  });
+
   test("leaves date-only times as dates, even with a timeZone", () => {
     // FullCalendar infers an all-day event from date-only times; giving
     // them a zone would turn them into events at midnight.

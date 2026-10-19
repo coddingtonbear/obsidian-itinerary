@@ -49,11 +49,20 @@ export class ItineraryRenderer
     });
     this.statusEl = this.containerEl.createDiv();
 
-    this.calendar = new Calendar(calendarEl, {
-      plugins: [classicTheme, dayGridPlugin, timeGridPlugin, listPlugin],
-      ...this.calendarOptions,
-    });
-    this.calendar.render();
+    try {
+      this.calendar = new Calendar(calendarEl, {
+        plugins: [classicTheme, dayGridPlugin, timeGridPlugin, listPlugin],
+        ...this.calendarOptions,
+      });
+      this.calendar.render();
+    } catch (e) {
+      // FullCalendar rejects some options outright (an unknown
+      // `initialView`, say); show why instead of an empty block.
+      this.calendar?.destroy();
+      this.calendar = null;
+      this.showStatus(errorMessage(e), "itinerary-error");
+      return;
+    }
 
     this.register(this.store.subscribe(this));
     void this.refresh();

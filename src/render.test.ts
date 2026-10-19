@@ -189,7 +189,7 @@ describe("ItineraryRenderer", () => {
     ).toBe("one two");
   });
 
-  test("notes translated FullCalendar 6 options in debug output", async () => {
+  test("notes translated pre-7 options in debug output", async () => {
     const renderer = new ItineraryRenderer(
       el,
       // Parsed from YAML, as FullCalendar 7's option types don't know it.
@@ -268,6 +268,22 @@ describe("ItineraryRenderer", () => {
 
     expect(refresh).not.toHaveBeenCalled();
     expect(eventRows()).toEqual([]);
+  });
+
+  test("shows an error when FullCalendar rejects its options", async () => {
+    const renderer = new ItineraryRenderer(
+      el,
+      { ...listSpec, initialView: "dayGridMonht" },
+      ["trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    expect(el.querySelector(".itinerary-error")?.textContent).toMatch(
+      /dayGridMonht/
+    );
+    renderer.unload();
   });
 
   test("shows an error when its events can't be loaded", async () => {

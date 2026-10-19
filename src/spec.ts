@@ -79,7 +79,7 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
 
 /** The FullCalendar options in an itinerary spec, without the options only
  * this plugin understands (which FullCalendar would warn about), and with
- * options written for FullCalendar 6 translated for FullCalendar 7. */
+ * options written for FullCalendar 5 and 6 translated for FullCalendar 7. */
 export function getCalendarOptions(spec: ItinerarySpec): TranslatedOptions {
   const { source, filter, debug, ...calendarOptions } = spec;
   return translateLegacyOptions(calendarOptions);

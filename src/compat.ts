@@ -2,7 +2,8 @@ import { CalendarOptions } from "fullcalendar";
 
 import { isRecord } from "./util";
 
-/** The toolbar FullCalendar 6 showed when `headerToolbar` was left unset.
+/** The toolbar FullCalendar 5 and 6 showed when `headerToolbar` was left
+ * unset.
  * FullCalendar 7 shows no toolbar by default; itineraries written before
  * the upgrade expect this one. */
 export const DefaultHeaderToolbar = {
@@ -11,8 +12,8 @@ export const DefaultHeaderToolbar = {
   end: "today prev,next",
 };
 
-/** FullCalendar 6 options that FullCalendar 7 renamed without changing
- * what they accept. */
+/** Options from FullCalendar 5 and 6 (which version 1 of this plugin used)
+ * that FullCalendar 7 renamed without changing what they accept. */
 const RenamedOptions: Record<string, string> = {
   stickyHeaderDates: "tableHeaderSticky",
   stickyFooterScrollbar: "footerScrollbarSticky",
@@ -20,15 +21,13 @@ const RenamedOptions: Record<string, string> = {
   slotLabelFormat: "slotHeaderFormat",
   slotLabelInterval: "slotHeaderInterval",
   listDaySideFormat: "listDayAltFormat",
-  multiMonthMinWidth: "singleMonthMinWidth",
-  multiMonthTitleFormat: "singleMonthTitleFormat",
   eventBackgroundColor: "eventColor",
   eventTextColor: "eventContrastColor",
   customButtons: "buttons",
   weekText: "weekTextShort",
 };
 
-/** FullCalendar 6 options that FullCalendar 7 removed outright. */
+/** Options from FullCalendar 5 and 6 that FullCalendar 7 removed outright. */
 const RemovedOptions = new Set([
   "handleWindowResize",
   "windowResizeDelay",
@@ -97,7 +96,7 @@ function translateRenamedAndRemoved(
   }
 }
 
-/** Translates FullCalendar 6 options in an itinerary into their
+/** Translates FullCalendar 5 and 6 options in an itinerary into their
  * FullCalendar 7 equivalents, so itineraries written for earlier versions
  * of this plugin keep working. */
 export function translateLegacyOptions(
@@ -109,7 +108,7 @@ export function translateLegacyOptions(
   if (!("headerToolbar" in options)) {
     options.headerToolbar = DefaultHeaderToolbar;
   } else if (options.headerToolbar === null || options.headerToolbar === "") {
-    // `headerToolbar:` with no value hid the toolbar in FullCalendar 6.
+    // `headerToolbar:` with no value hid the toolbar before FullCalendar 7.
     options.headerToolbar = false;
   }
 

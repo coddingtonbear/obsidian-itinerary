@@ -41,7 +41,9 @@ export class EventStore {
       const paths = [...this.pendingRefreshes];
       this.pendingRefreshes.clear();
       for (const pending of paths) {
-        void this.refresh(pending);
+        // A failed read has already been reported to the dependents, which
+        // show it when they re-request their events.
+        this.refresh(pending).catch(() => undefined);
       }
     }, this.refreshDelay);
   }
@@ -77,9 +79,14 @@ export class EventStore {
       return;
     }
     this.events.delete(path);
-    await this.load(path);
-    for (const subscriber of dependents) {
-      subscriber.onEventsChanged();
+    try {
+      await this.load(path);
+    } finally {
+      // Tell dependents even if the read failed: they re-request their
+      // events, which retries the read and shows its error.
+      for (const subscriber of dependents) {
+        subscriber.onEventsChanged();
+      }
     }
   }
 

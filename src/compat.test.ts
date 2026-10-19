@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { DefaultHeaderToolbar, translateLegacyOptions } from "./compat";
 
 describe("translateLegacyOptions", () => {
-  test("shows FullCalendar 6's toolbar when none is configured", () => {
+  test("shows the pre-7 toolbar when none is configured", () => {
     expect(translateLegacyOptions({}).options.headerToolbar).toEqual(
       DefaultHeaderToolbar
     );

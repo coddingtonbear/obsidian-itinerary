@@ -148,6 +148,17 @@ describe("EventStore.scheduleRefresh", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
+  test("tells dependents about a refresh whose read failed", async () => {
+    const onA = subscriber(["a.md"]);
+    store.subscribe(onA);
+    read.mockRejectedValueOnce(new Error("busy"));
+
+    store.scheduleRefresh("a.md");
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
+  });
+
   test("cancels a pending refresh when disposed", async () => {
     store.subscribe(subscriber(["a.md"]));
     store.scheduleRefresh("a.md");

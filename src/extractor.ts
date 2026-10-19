@@ -93,30 +93,51 @@ export function isDateOnly(time: string | undefined): boolean {
 }
 
 /** Reads an ISO time as an instant, if it names its own offset (`Z`,
- * `+05:00`, a bracketed zone, ...). */
+ * `+05:00`, ...) or zone (`[Europe/Paris]`). */
 export function readInstant(time: string): Temporal.Instant | null {
   try {
     return Temporal.Instant.from(time);
+  } catch {
+    // No offset; it may still name a zone.
+  }
+  try {
+    return Temporal.ZonedDateTime.from(time).toInstant();
   } catch {
     return null;
   }
 }
 
+/** Whether an event's times are all dates without times of day, which
+ * FullCalendar draws as an all-day event. */
+export function hasOnlyDates(start?: string, end?: string): boolean {
+  return isDateOnly(start) && (end === undefined || isDateOnly(end));
+}
+
 /** Interprets a wall-clock time in the given zone as an absolute ISO time.
- * A time that already names its offset is the same instant, shown in that
- * zone. A date without a time is left alone: FullCalendar reads such dates
- * as all-day, and giving them a zone would make them events at midnight. */
+ * A time that already names its offset or zone is the same instant, shown
+ * in that zone; without a zone it is written as UTC, a form FullCalendar's
+ * own parser accepts (it rejects bracketed zones, offsets with seconds and
+ * a few other forms Temporal reads).
+ *
+ * Dates without a time are left alone when `keepDates` is set (the event's
+ * times are all dates): FullCalendar reads such events as all-day, and
+ * giving them a zone would make them events at midnight. */
 function applyZone(
   field: string,
   time: string | undefined,
-  zone: string | undefined
+  zone: string | undefined,
+  keepDates: boolean
 ): string | undefined {
-  if (time === undefined || zone === undefined || isDateOnly(time)) {
+  if (time === undefined || (keepDates && isDateOnly(time))) {
     return time;
+  }
+  const instant = readInstant(time);
+  if (zone === undefined) {
+    return instant ? instant.toString() : time;
   }
   try {
     const zoned =
-      readInstant(time)?.toZonedDateTimeISO(zone) ??
+      instant?.toZonedDateTimeISO(zone) ??
       Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
     return zoned.toString({ timeZoneName: "never" });
   } catch (e) {
@@ -142,8 +163,9 @@ export function parseEventSpec(eventSpec: string): EventSpec {
 
   // Apply timezones to start/end times if provided
   if (!allDay) {
-    start = applyZone("start", start, startTimeZone ?? timeZone);
-    end = applyZone("end", end, endTimeZone ?? timeZone);
+    const datesOnly = hasOnlyDates(start, end);
+    start = applyZone("start", start, startTimeZone ?? timeZone, datesOnly);
+    end = applyZone("end", end, endTimeZone ?? timeZone, datesOnly);
   }
 
   const color = readString(spec, "color");
