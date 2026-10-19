@@ -139,9 +139,12 @@ export interface BlockLocation {
   kind: BlockKind;
   /** The line of the opening fence. */
   openLine: number;
-  /** The line of the closing fence, or the line count if it isn't closed
-   * yet (as while it's being written). */
+  /** The line after the body: the closing fence, or for a block that
+   * isn't closed yet (as while it's being written), the next opening
+   * fence or the line count. */
   closeLine: number;
+  /** The opening fence's indentation, which the body shares. */
+  indent: string;
 }
 
 /** Read access to a document by line, as the editor offers it. */
@@ -153,8 +156,41 @@ export interface DocumentLines {
 // The fence rule of extractor.ts's EventBlockPattern: an opening fence
 // naming the block, closed by the next bare fence. Other fences are not
 // tracked, as there.
-const OpenFencePattern = /^[ \t]*```(itinerary|itinerary-event)[ \t]*$/;
+const OpenFencePattern = /^([ \t]*)```(itinerary|itinerary-event)[ \t]*$/;
 const CloseFencePattern = /^[ \t]*```[ \t]*$/;
+
+/** The `itinerary` and `itinerary-event` blocks of a document, in order.
+ *
+ * This differs from extractor.ts in one way, for blocks being written: an
+ * opening fence inside a block that hasn't been closed yet ends it and
+ * starts another, rather than being read as part of its body. Otherwise a
+ * block started above an existing one would take in that one's fields. */
+export function* blocksIn(doc: DocumentLines): Generator<BlockLocation> {
+  let open: { kind: BlockKind; line: number; indent: string } | null = null;
+  for (let i = 0; i < doc.lineCount; i++) {
+    const text = doc.getLine(i);
+    if (open !== null && CloseFencePattern.test(text)) {
+      yield { kind: open.kind, openLine: open.line, closeLine: i, indent: open.indent };
+      open = null;
+      continue;
+    }
+    const match = OpenFencePattern.exec(text);
+    if (match) {
+      if (open !== null) {
+        yield { kind: open.kind, openLine: open.line, closeLine: i, indent: open.indent };
+      }
+      open = { kind: match[2] as BlockKind, line: i, indent: match[1] };
+    }
+  }
+  if (open !== null) {
+    yield {
+      kind: open.kind,
+      openLine: open.line,
+      closeLine: doc.lineCount,
+      indent: open.indent,
+    };
+  }
+}
 
 /** Finds the `itinerary` or `itinerary-event` block whose body holds the
  * given line, if any. */
@@ -162,31 +198,41 @@ export function findBlock(
   doc: DocumentLines,
   line: number
 ): BlockLocation | null {
-  let open: { kind: BlockKind; line: number } | null = null;
-  for (let i = 0; i < doc.lineCount; i++) {
-    const text = doc.getLine(i);
-    if (open === null) {
-      if (i >= line) {
-        return null;
-      }
-      const match = OpenFencePattern.exec(text);
-      if (match) {
-        open = { kind: match[1] as BlockKind, line: i };
-      }
-    } else if (CloseFencePattern.test(text)) {
-      if (i > line) {
-        return { kind: open.kind, openLine: open.line, closeLine: i };
-      }
-      if (i === line) {
-        // On the closing fence itself.
-        return null;
-      }
-      open = null;
+  for (const block of blocksIn(doc)) {
+    if (block.openLine >= line) {
+      return null;
+    }
+    if (line < block.closeLine) {
+      return block;
     }
   }
-  return open === null
-    ? null
-    : { kind: open.kind, openLine: open.line, closeLine: doc.lineCount };
+  return null;
+}
+
+/** Splits text into lines, for blocksIn. */
+export function textLines(text: string): DocumentLines {
+  const lines = text.split(/\r?\n/);
+  return { lineCount: lines.length, getLine: (line) => lines[line] };
+}
+
+/** A block's body, with the fence's indentation taken off each line, and
+ * how much was taken off each. */
+function blockBody(
+  doc: DocumentLines,
+  block: BlockLocation
+): { lines: string[]; removed: number[] } {
+  const lines: string[] = [];
+  const removed: number[] = [];
+  for (let i = block.openLine + 1; i < block.closeLine; i++) {
+    const line = doc.getLine(i);
+    let n = 0;
+    while (n < block.indent.length && line[n] === block.indent[n]) {
+      n++;
+    }
+    lines.push(line.slice(n));
+    removed.push(n);
+  }
+  return { lines, removed };
 }
 
 const KeyLinePattern = /^([A-Za-z][A-Za-z0-9_]*)[ \t]*:/;
@@ -219,6 +265,9 @@ export type CompletionTarget =
       query: string;
       from: number;
       to: number;
+      /** Written before the value: a space, if the colon has none after
+       * it (`allDay:true` isn't a field, to YAML). */
+      prefix: string;
     };
 
 /** Works out whether the cursor is on a field name or a field's value.
@@ -245,38 +294,51 @@ export function findTarget(
     };
   }
 
-  const key = /^([A-Za-z][A-Za-z0-9_]*)[ \t]*:[ \t]*/.exec(line);
+  const key = /^([A-Za-z][A-Za-z0-9_]*)[ \t]*:([ \t]*)/.exec(line);
   if (key && ch >= key[0].length) {
-    return valueTarget(key[1], line, key[0].length, ch);
+    const prefix = key[2] === "" ? " " : "";
+    return valueTarget(key[1], line, key[0].length, ch, prefix);
   }
 
   const item = /^[ \t]*-[ \t]+/.exec(line);
   if (item && ch >= item[0].length) {
     const field = listParent(body, lineIndex);
     if (field !== null) {
-      return valueTarget(field, line, item[0].length, ch);
+      return valueTarget(field, line, item[0].length, ch, "");
     }
   }
   return null;
+}
+
+/** Whether YAML reads a value as starting a comment by this point: a `#`
+ * at its start or after a space, outside quotes. */
+function hasComment(value: string): boolean {
+  return !/^["']/.test(value) && /(^|[ \t])#/.test(value);
 }
 
 function valueTarget(
   field: string,
   line: string,
   from: number,
-  ch: number
+  ch: number,
+  prefix: string
 ): CompletionTarget | null {
   const typed = line.slice(from, ch);
   // Flow collections (`[a, b]`, `{...}`) and comments are left alone.
-  if (/^[[{]/.test(typed) || typed.includes("#")) {
+  if (/^[[{]/.test(typed) || hasComment(typed)) {
     return null;
   }
+  // The value runs to the end of the line, or to a comment after it.
+  const value = line.slice(from);
+  const comment = hasComment(value) ? /(^|[ \t])#/.exec(value) : null;
+  const end = from + (comment ? comment.index : value.length);
   return {
     type: "value",
     field,
     query: typed.replace(/^["']/, ""),
     from,
-    to: Math.max(ch, line.trimEnd().length),
+    to: Math.max(ch, from + line.slice(from, end).trimEnd().length),
+    prefix,
   };
 }
 
@@ -376,15 +438,15 @@ export function blockTags(body: string): string[] {
     .map((t) => String(t));
 }
 
-const EventBlockPattern =
-  /^[ \t]*```itinerary-event[ \t]*\r?\n([\s\S]*?)^[ \t]*```[ \t]*$/gm;
-
 /** The distinct tags of a note's event blocks, in the order first used. */
 export function tagsInNote(text: string): string[] {
+  const doc = textLines(text);
   const tags = new Set<string>();
-  for (const match of text.matchAll(EventBlockPattern)) {
-    for (const tag of blockTags(match[1])) {
-      tags.add(tag);
+  for (const block of blocksIn(doc)) {
+    if (block.kind === "itinerary-event") {
+      for (const tag of blockTags(blockBody(doc, block).lines.join("\n"))) {
+        tags.add(tag);
+      }
     }
   }
   return [...tags];
@@ -437,12 +499,15 @@ export function suggest(
   const write = info?.values === "boolean" ? String : yamlScalar;
   return matching(values, target.query)
     .filter((value) => value !== target.query)
-    .map((value) => ({ label: value, text: write(value) }));
+    .map((value) => ({
+      label: value,
+      text: target.prefix + write(value),
+    }));
 }
 
-/** Everything the editor needs to offer completions at a position. */
+/** Everything the editor needs to offer completions on the cursor's line. */
 export interface Completion {
-  line: number;
+  /** The span to replace. */
   from: number;
   to: number;
   query: string;
@@ -460,22 +525,25 @@ export function complete(
   if (block === null) {
     return null;
   }
-  const body: string[] = [];
-  for (let i = block.openLine + 1; i < block.closeLine; i++) {
-    body.push(doc.getLine(i));
+  // A block in a list item is indented like its fence; fields are read
+  // relative to that.
+  const body = blockBody(doc, block);
+  const index = cursor.line - block.openLine - 1;
+  const removed = body.removed[index];
+  if (cursor.ch < removed) {
+    return null;
   }
-  const target = findTarget(body, cursor.line - block.openLine - 1, cursor.ch);
+  const target = findTarget(body.lines, index, cursor.ch - removed);
   if (target === null) {
     return null;
   }
-  const suggestions = suggest(block.kind, body, target, env);
+  const suggestions = suggest(block.kind, body.lines, target, env);
   if (suggestions.length === 0) {
     return null;
   }
   return {
-    line: cursor.line,
-    from: target.from,
-    to: target.to,
+    from: target.from + removed,
+    to: target.to + removed,
     query: target.query,
     suggestions,
   };

@@ -64,11 +64,13 @@ describe("findBlock", () => {
       kind: "itinerary-event",
       openLine: 1,
       closeLine: 3,
+      indent: "",
     });
     expect(findBlock(doc, 6)).toEqual({
       kind: "itinerary",
       openLine: 5,
       closeLine: 7,
+      indent: "",
     });
   });
 
@@ -88,12 +90,32 @@ describe("findBlock", () => {
       kind: "itinerary-event",
       openLine: 11,
       closeLine: 13,
+      indent: "",
     });
+  });
+
+  test("ends an unclosed block at the next opening fence", () => {
+    const typing = lines(
+      [
+        "```itinerary-event", // 0: being written
+        "ti", // 1
+        "```itinerary-event", // 2: already there
+        "title: B", // 3
+        "```", // 4
+      ].join("\n")
+    );
+    expect(findBlock(typing, 1)).toMatchObject({ openLine: 0, closeLine: 2 });
+    expect(findBlock(typing, 2)).toBeNull();
+    expect(findBlock(typing, 3)).toMatchObject({ openLine: 2, closeLine: 4 });
+    expect(findBlock(typing, 4)).toBeNull();
   });
 
   test("accepts indented fences and trailing spaces, as extractor.ts does", () => {
     const indented = lines("  ```itinerary-event  \ntitle: A\n  ```");
-    expect(findBlock(indented, 1)?.kind).toBe("itinerary-event");
+    expect(findBlock(indented, 1)).toMatchObject({
+      kind: "itinerary-event",
+      indent: "  ",
+    });
   });
 
   test("doesn't take other languages starting with the same name", () => {
@@ -132,7 +154,24 @@ describe("findTarget", () => {
       query: "Amer",
       from: 10,
       to: 14,
+      prefix: "",
     });
+  });
+
+  test("a value with no space after the colon gets one", () => {
+    expect(findTarget(["allDay:tr"], 0, 9)).toMatchObject({
+      query: "tr",
+      from: 7,
+      to: 9,
+      prefix: " ",
+    });
+  });
+
+  test("a value's span stops at a comment after it", () => {
+    expect(findTarget(["timeZone: Ame  # where we land"], 0, 13)).toMatchObject(
+      { query: "Ame", from: 10, to: 13 }
+    );
+    expect(findTarget(["tag: a#b"], 0, 5)).toMatchObject({ to: 8 });
   });
 
   test("a value just after the colon", () => {
@@ -154,6 +193,12 @@ describe("findTarget", () => {
   test("leaves flow collections and comments alone", () => {
     expect(findTarget(["tag: [a, b"], 0, 10)).toBeNull();
     expect(findTarget(["title: x # no"], 0, 13)).toBeNull();
+    expect(findTarget(["tag: #fl"], 0, 8)).toBeNull();
+  });
+
+  test("a # inside a word or quotes isn't a comment", () => {
+    expect(findTarget(['tag: "#fl'], 0, 9)).toMatchObject({ query: "#fl" });
+    expect(findTarget(["tag: a#"], 0, 7)).toMatchObject({ query: "a#" });
   });
 
   test("a list item belongs to the field above it", () => {
@@ -163,6 +208,7 @@ describe("findTarget", () => {
       query: "fl",
       from: 2,
       to: 4,
+      prefix: "",
     });
     expect(findTarget(["tag:", "  - fl"], 1, 6)).toMatchObject({
       field: "tag",
@@ -239,6 +285,21 @@ describe("tags", () => {
     expect(tagsInNote(note)).toEqual(["hotel", "flight", "outing"]);
   });
 
+  test("tagsInNote reads indented blocks and ones not closed yet", () => {
+    const note = [
+      "```itinerary-event",
+      "tag: new",
+      "```itinerary-event",
+      "tag: hotel",
+      "```",
+      "- Day 1",
+      "  ```itinerary-event",
+      "  tag: flight",
+      "  ```",
+    ].join("\n");
+    expect(tagsInNote(note)).toEqual(["new", "hotel", "flight"]);
+  });
+
   test("presentFields lists top-level keys", () => {
     expect([...presentFields(["title: x", "tag:", "- a", "  nested: 1"])]).toEqual(
       ["title", "tag"]
@@ -259,7 +320,7 @@ describe("complete", () => {
     expect(names).not.toContain("title");
     expect(result?.suggestions.every((s) => s.description)).toBe(true);
     expect(result?.suggestions[0].text).toMatch(/^\w+: $/);
-    expect(result).toMatchObject({ line: 2, from: 0, to: 1, query: "t" });
+    expect(result).toMatchObject({ from: 0, to: 1, query: "t" });
   });
 
   test("suggests itinerary options, including calendar options", () => {
@@ -299,6 +360,30 @@ describe("complete", () => {
   test("replaces the whole value", () => {
     const result = completeAt("```itinerary-event\ntimeZone: Amer|ica/Chi\n```");
     expect(result).toMatchObject({ from: 10, to: 21 });
+  });
+
+  test("adds the space YAML needs after a bare colon", () => {
+    const result = completeAt("```itinerary-event\nallDay:|\n```");
+    expect(result?.suggestions.map((s) => s.text)).toEqual([" true", " false"]);
+    expect(result).toMatchObject({ from: 7, to: 7 });
+  });
+
+  test("works in a block indented under a list item", () => {
+    const text = "- Day 1\n  ```itinerary-event\n  title: A\n  ti|\n  ```";
+    const result = completeAt(text);
+    expect(result?.suggestions.map((s) => s.label)).toEqual([
+      "timeZone",
+      "startTimeZone",
+      "endTimeZone",
+    ]);
+    expect(result).toMatchObject({ from: 2, to: 4, query: "ti" });
+    expect(
+      completeAt("- Day 1\n  ```itinerary-event\n  allDay: |\n  ```")
+    ).toMatchObject({ from: 10, to: 10 });
+  });
+
+  test("offers nothing in a block's indentation", () => {
+    expect(completeAt("  ```itinerary-event\n | ti\n  ```")).toBeNull();
   });
 
   test("suggests true and false, unquoted", () => {

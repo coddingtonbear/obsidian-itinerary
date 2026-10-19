@@ -1,5 +1,4 @@
 import {
-  App,
   Editor,
   EditorPosition,
   EditorSuggest,
@@ -13,7 +12,8 @@ import { Completion, Suggestion, complete, tagsInNote } from "./completion";
 let timeZones: readonly string[] | null = null;
 
 function supportedTimeZones(): readonly string[] {
-  timeZones ??= Intl.supportedValuesOf("timeZone");
+  // Some engines list only named zones, leaving out UTC.
+  timeZones ??= [...new Set([...Intl.supportedValuesOf("timeZone"), "UTC"])];
   return timeZones;
 }
 
@@ -22,10 +22,6 @@ function supportedTimeZones(): readonly string[] {
  * completion.ts; this connects it to Obsidian's editor. */
 export class BlockSuggest extends EditorSuggest<Suggestion> {
   private completion: Completion | null = null;
-
-  constructor(app: App) {
-    super(app);
-  }
 
   onTrigger(
     cursor: EditorPosition,
