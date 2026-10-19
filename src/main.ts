@@ -1,5 +1,7 @@
 import { MarkdownPostProcessorContext, Plugin, TFile } from "obsidian";
 
+import { padForInsertion, tagsInNote } from "./eventForm";
+import { EventModal } from "./eventModal";
 import { getEventInformation, parseEventSpec } from "./extractor";
 import { ItineraryRenderer, renderErrorPre, renderEvent } from "./render";
 import { SourceLookup, resolveSourcePath } from "./sources";
@@ -53,6 +55,24 @@ export default class Itinerary extends Plugin {
     this.registerMarkdownCodeBlockProcessor("itinerary-event", (source, el) =>
       this.renderEvent(source, el)
     );
+
+    this.addCommand({
+      id: "insert-event",
+      name: "Insert event",
+      editorCallback: (editor) => {
+        new EventModal(this.app, tagsInNote(editor.getValue()), (block) => {
+          const from = editor.getCursor("from");
+          const to = editor.getCursor("to");
+          editor.replaceSelection(
+            padForInsertion(
+              block,
+              editor.getLine(from.line).slice(0, from.ch),
+              editor.getLine(to.line).slice(to.ch)
+            )
+          );
+        }).open();
+      },
+    });
   }
 
   private async readEvents(path: DocumentPath): Promise<EventSpec[]> {

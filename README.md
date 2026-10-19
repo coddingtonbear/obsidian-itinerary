@@ -116,6 +116,15 @@ And as a reward for your effort, you can then render calendars for your various 
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/overview.png)
 
+### Inserting events with a form
+
+If you'd rather not remember which fields an event takes, run **Itinerary: Insert event** from the command palette (or give it a hotkey under Settings → Hotkeys).  It opens a form asking for the event's title, start and end, whether it's all-day, its time zone, tags and color, and writes a finished `itinerary-event` block at your cursor.
+
+- Turning on **All day** switches the start and end to dates and hides the time zone, which doesn't apply to whole days.
+- For an all-day event, the form asks for the **last day** the event covers and writes the day after as its `end`, since all-day `end` dates are exclusive (see "Itinerary Event Options" below).
+- The time zone field suggests zone names as you type (`new york` finds `America/New_York`); leave it empty to use your own.
+- The tags field suggests tags already used by events in the same note.
+
 
 ## Options
 
