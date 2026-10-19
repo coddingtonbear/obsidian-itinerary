@@ -9,23 +9,25 @@ import {
 import {
   EventFormValues,
   completeTag,
-  convertFormTime,
   emptyEventForm,
   eventBlock,
   parseTagInput,
   suggestTags,
   suggestTimeZones,
+  switchAllDay,
   validateEventForm,
 } from "./eventForm";
 
-/** Suggests from a fixed list of values, replacing the input's text with
- * what `complete` makes of the chosen one. */
+/** Suggests from a list of values, replacing the input's text with what
+ * `complete` makes of the chosen one and passing the result to `onPick`
+ * (setting the input's value fires no `input` event). */
 class ListSuggest extends AbstractInputSuggest<string> {
   constructor(
     app: App,
-    private inputEl: HTMLInputElement,
+    inputEl: HTMLInputElement,
     private suggest: (query: string) => string[],
-    private complete: (query: string, value: string) => string
+    private complete: (query: string, value: string) => string,
+    private onPick: (text: string) => void
   ) {
     super(app, inputEl);
   }
@@ -39,15 +41,21 @@ class ListSuggest extends AbstractInputSuggest<string> {
   }
 
   selectSuggestion(value: string): void {
-    this.setValue(this.complete(this.getValue(), value));
-    this.inputEl.dispatchEvent(new Event("input"));
+    const text = this.complete(this.getValue(), value);
+    this.setValue(text);
+    this.onPick(text);
     this.close();
   }
 }
 
+let zoneList: string[] | null = null;
+
 function timeZones(): string[] {
-  const zones = Intl.supportedValuesOf("timeZone");
-  return zones.includes("UTC") ? zones : [...zones, "UTC"];
+  if (zoneList === null) {
+    const zones = Intl.supportedValuesOf("timeZone");
+    zoneList = zones.includes("UTC") ? zones : [...zones, "UTC"];
+  }
+  return zoneList;
 }
 
 /** The "Insert itinerary event" form. `onSubmit` receives the finished
@@ -108,7 +116,8 @@ export class EventModal extends Modal {
           this.app,
           text.inputEl,
           (query) => suggestTimeZones(query, timeZones()),
-          (_, zone) => zone
+          (_, zone) => zone,
+          (zone) => (this.values.timeZone = zone)
         );
       });
 
@@ -121,7 +130,8 @@ export class EventModal extends Modal {
           this.app,
           text.inputEl,
           (query) => suggestTags(query, this.knownTags),
-          completeTag
+          completeTag,
+          (tags) => (this.values.tags = parseTagInput(tags))
         );
       });
 
@@ -147,8 +157,14 @@ export class EventModal extends Modal {
         button.setButtonText("Cancel").onClick(() => this.close())
       );
 
+    // Enter in a field submits the form; on a button or the toggle it does
+    // what it does there (so Enter on Cancel cancels).
     this.scope.register([], "Enter", (evt) => {
-      if (!evt.isComposing) {
+      if (
+        evt.target instanceof HTMLInputElement &&
+        evt.target.type !== "checkbox" &&
+        !evt.isComposing
+      ) {
         evt.preventDefault();
         this.submit();
       }
@@ -162,15 +178,14 @@ export class EventModal extends Modal {
   }
 
   private setAllDay(allDay: boolean): void {
-    this.values.allDay = allDay;
+    this.values = switchAllDay(this.values, allDay);
     const type = allDay ? "date" : "datetime-local";
-    for (const input of [this.startInput, this.endInput]) {
-      const converted = convertFormTime(input.getValue(), allDay);
-      input.inputEl.type = type;
-      input.setValue(converted);
-    }
-    this.values.start = this.startInput.getValue();
-    this.values.end = this.endInput.getValue();
+    this.startInput.inputEl.type = type;
+    this.startInput.setValue(this.values.start);
+    this.endInput.inputEl.type = type;
+    this.endInput.setValue(this.values.end);
+    // Problems from the last attempt are worded for the other kind of time.
+    this.problemsEl.empty();
 
     if (allDay) {
       this.endSetting

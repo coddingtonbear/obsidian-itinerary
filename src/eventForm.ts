@@ -31,14 +31,55 @@ export function emptyEventForm(): EventFormValues {
   };
 }
 
-/** Converts a time entered in the form when the all-day toggle changes:
- * a date-time keeps its date, and a date becomes midnight on that date. */
-export function convertFormTime(time: string, allDay: boolean): string {
-  if (time === "") {
-    return time;
+/** The form's values after the all-day toggle changes, with the times
+ * entered converted to the other kind of input. The start keeps its date
+ * (a date becomes midnight). The end is converted so the event covers the
+ * same days: a timed end is exclusive, while an all-day event's last day
+ * is inclusive, so a timed end at midnight becomes the day before, and a
+ * last day becomes midnight after it. */
+export function switchAllDay(
+  values: EventFormValues,
+  allDay: boolean
+): EventFormValues {
+  if (values.allDay === allDay) {
+    return values;
   }
-  const date = time.slice(0, 10);
-  return allDay ? date : `${date}T00:00`;
+  const start = values.start === "" ? "" : values.start.slice(0, 10);
+  return {
+    ...values,
+    allDay,
+    start: allDay || start === "" ? start : `${start}T00:00`,
+    end: allDay ? toLastDay(values.end, start) : toTimedEnd(values.end),
+  };
+}
+
+function toLastDay(end: string, startDate: string): string {
+  if (end === "") {
+    return end;
+  }
+  const date = end.slice(0, 10);
+  try {
+    const time = Temporal.PlainDateTime.from(end);
+    if (time.hour === 0 && time.minute === 0 && time.second === 0) {
+      const dayBefore = time.toPlainDate().subtract({ days: 1 }).toString();
+      // A zero-length event at midnight keeps its one day.
+      return dayBefore < startDate ? date : dayBefore;
+    }
+  } catch {
+    // Not a complete date-time; keep what date there is.
+  }
+  return date;
+}
+
+function toTimedEnd(lastDay: string): string {
+  if (lastDay === "") {
+    return lastDay;
+  }
+  try {
+    return `${toExclusiveEnd(lastDay)}T00:00`;
+  } catch {
+    return `${lastDay.slice(0, 10)}T00:00`;
+  }
 }
 
 /** An all-day event's `end` is exclusive (the day after the last day it
@@ -196,24 +237,29 @@ export function parseTagInput(text: string): string[] {
   return cleanTags(text.split(","));
 }
 
-/** Every tag used by an event in a note, in order of first use. */
+/** Every tag used by an event in a note, in order of first use. Tags
+ * containing a comma are left out: the form's tag field is
+ * comma-separated, so it can't enter them. */
 export function tagsInNote(text: string): string[] {
   return cleanTags(
     getEventInformation(text).flatMap((event) =>
       getArrayForArrayOrObject(event.tag)
     )
-  );
+  ).filter((tag) => !tag.includes(","));
 }
 
 /** Tags to suggest for the tag being typed (the text after the last
- * comma), leaving out tags already entered. */
+ * comma), leaving out tags already entered. Both ignore case. */
 export function suggestTags(text: string, known: string[]): string[] {
   const parts = text.split(",");
   const typing = parts[parts.length - 1].trim().toLowerCase();
-  const entered = new Set(parts.slice(0, -1).map((part) => part.trim()));
-  return known.filter(
-    (tag) => !entered.has(tag) && tag.toLowerCase().includes(typing)
+  const entered = new Set(
+    parts.slice(0, -1).map((part) => part.trim().toLowerCase())
   );
+  return known.filter((tag) => {
+    const lower = tag.toLowerCase();
+    return !entered.has(lower) && lower.includes(typing);
+  });
 }
 
 /** The tag field's text after choosing a suggested tag for the tag being

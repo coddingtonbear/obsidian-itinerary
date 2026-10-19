@@ -3,7 +3,6 @@ import { describe, test, expect } from "vitest";
 import {
   EventFormValues,
   completeTag,
-  convertFormTime,
   emptyEventForm,
   eventBlock,
   padForInsertion,
@@ -11,6 +10,7 @@ import {
   serializeEventForm,
   suggestTags,
   suggestTimeZones,
+  switchAllDay,
   tagsInNote,
   toExclusiveEnd,
   validateEventForm,
@@ -246,17 +246,63 @@ describe("validateEventForm", () => {
   });
 });
 
-describe("convertFormTime", () => {
-  test("keeps the date when switching to all-day", () => {
-    expect(convertFormTime("2021-11-01T12:30", true)).toBe("2021-11-01");
+describe("switchAllDay", () => {
+  function times(values: EventFormValues): [string, string] {
+    return [values.start, values.end];
+  }
+
+  test("keeps the dates when switching to all-day", () => {
+    expect(
+      times(
+        switchAllDay(
+          form({ start: "2021-11-01T12:30", end: "2021-11-03T09:00" }),
+          true
+        )
+      )
+    ).toEqual(["2021-11-01", "2021-11-03"]);
   });
 
-  test("starts at midnight when switching from all-day", () => {
-    expect(convertFormTime("2021-11-01", false)).toBe("2021-11-01T00:00");
+  test("makes an end at midnight the day before, the last day covered", () => {
+    expect(
+      times(
+        switchAllDay(
+          form({ start: "2024-01-01T09:00", end: "2024-01-02T00:00" }),
+          true
+        )
+      )
+    ).toEqual(["2024-01-01", "2024-01-01"]);
   });
 
-  test("leaves an empty field empty", () => {
-    expect(convertFormTime("", false)).toBe("");
+  test("keeps a zero-length event at midnight on its day", () => {
+    expect(
+      times(
+        switchAllDay(
+          form({ start: "2024-01-01T00:00", end: "2024-01-01T00:00" }),
+          true
+        )
+      )
+    ).toEqual(["2024-01-01", "2024-01-01"]);
+  });
+
+  test("ends at midnight after the last day when switching from all-day", () => {
+    const values = switchAllDay(
+      form({ allDay: true, start: "2024-01-01", end: "2024-01-03" }),
+      false
+    );
+    expect(times(values)).toEqual(["2024-01-01T00:00", "2024-01-04T00:00"]);
+    expect(validateEventForm({ ...values, title: "A" })).toEqual([]);
+  });
+
+  test("covers the same days switching there and back", () => {
+    const allDay = form({ allDay: true, start: "2024-01-01", end: "2024-01-01" });
+    expect(switchAllDay(switchAllDay(allDay, false), true)).toEqual(allDay);
+  });
+
+  test("leaves empty fields empty, and an unchanged mode alone", () => {
+    expect(times(switchAllDay(form({}), true))).toEqual(["", ""]);
+    expect(times(switchAllDay(form({ allDay: true }), false))).toEqual(["", ""]);
+    const values = form({ start: "2021-11-01T12:30" });
+    expect(switchAllDay(values, false)).toBe(values);
   });
 });
 
@@ -308,11 +354,25 @@ describe("tags", () => {
     expect(tagsInNote(note)).toEqual(["hotel", "flight"]);
   });
 
+  test("tagsInNote leaves out tags the comma-separated field can't hold", () => {
+    const note = [
+      "```itinerary-event",
+      "title: A",
+      "start: 2021-11-01",
+      "tag:",
+      "- Paris, France",
+      "- hotel",
+      "```",
+    ].join("\n");
+    expect(tagsInNote(note)).toEqual(["hotel"]);
+  });
+
   test("suggestTags matches the tag being typed and skips entered ones", () => {
     const known = ["hotel", "flight", "Hostel"];
     expect(suggestTags("", known)).toEqual(known);
     expect(suggestTags("ho", known)).toEqual(["hotel", "Hostel"]);
     expect(suggestTags("hotel, ho", known)).toEqual(["Hostel"]);
+    expect(suggestTags("HOSTEL, ho", known)).toEqual(["hotel"]);
   });
 
   test("completeTag replaces the tag being typed", () => {
