@@ -133,13 +133,13 @@ export function editDistance(
   return d[a.length][b.length];
 }
 
-/** How far a field may be from a known one and still read as a typo of
- * it. Short names get less room, since many short custom fields are an
+/** How far a field is from a known one, if it's close enough to read as a
+ * typo of it. Short names get less room, since many short custom fields are an
  * edit or two from one: none for `id`; for names up to five letters, one
  * missing, extra or swapped letter but no changed one (`gate`, `rate`,
  * `stars` and `tax` aren't typos of `date`, `start` or `tag`); one edit
  * up to seven letters (`group` isn't `groupId`); two beyond. */
-function isTypoOf(written: string, known: string): number | undefined {
+function typoDistance(written: string, known: string): number | undefined {
   if (known.length <= 2) {
     return undefined;
   }
@@ -160,7 +160,7 @@ export function suggestField(field: string): string | undefined {
   }
   let best: { field: string; distance: number } | undefined;
   for (const known of KnownFields) {
-    const distance = isTypoOf(written, normalize(known));
+    const distance = typoDistance(written, normalize(known));
     if (
       distance !== undefined &&
       (best === undefined || distance < best.distance)
@@ -187,23 +187,24 @@ function readComparable(
   }
 }
 
-/** Whether an event's end isn't after its start, which makes FullCalendar
- * ignore the end. Unknown when one names an offset and the other doesn't:
- * the other is read in the calendar's zone, which differs between
- * itineraries. */
-function endsByStart(start: string, end: string): boolean {
+/** Whether FullCalendar would ignore an event's end for not being after
+ * its start. An all-day end on the start's own day is left out: dropping
+ * it leaves the same one-day event. Unknown when one time names an offset
+ * and the other doesn't: the other is read in the calendar's zone, which
+ * differs between itineraries. */
+function endsByStart(start: string, end: string, allDay: boolean): boolean {
   const from = readComparable(start);
   const to = readComparable(end);
+  let order: number | undefined;
   if (from instanceof Temporal.Instant && to instanceof Temporal.Instant) {
-    return Temporal.Instant.compare(to, from) <= 0;
-  }
-  if (
+    order = Temporal.Instant.compare(to, from);
+  } else if (
     from instanceof Temporal.PlainDateTime &&
     to instanceof Temporal.PlainDateTime
   ) {
-    return Temporal.PlainDateTime.compare(to, from) <= 0;
+    order = Temporal.PlainDateTime.compare(to, from);
   }
-  return false;
+  return order !== undefined && (allDay ? order < 0 : order <= 0);
 }
 
 /** A date with only a year, or a year and month, which FullCalendar's
@@ -216,10 +217,11 @@ export function isCalendarReadable(time: string): boolean {
   return CalendarIsoPattern.test(time) || PartialDatePattern.test(time);
 }
 
-/** A whole number of eight digits, which YAML reads from an unquoted
- * compact date like `20211101`: as a time, it's milliseconds since 1970. */
-function looksLikeCompactDate(value: unknown): value is number {
-  return typeof value === "number" && /^\d{8}$/.test(String(value));
+/** A whole number YAML reads from an unquoted year, year-month or compact
+ * date (`2021`, `202111`, `20211101`): as a time, it's milliseconds since
+ * 1970. */
+function looksLikeUnquotedDate(value: unknown): value is number {
+  return typeof value === "number" && /^\d{4}(?:\d{2}){0,2}$/.test(String(value));
 }
 
 /** Whether a time, as written, names its own offset or zone. */
@@ -241,29 +243,10 @@ export function checkEvent(
   const isSet = (field: string): boolean =>
     spec[field] !== undefined && spec[field] !== null;
 
-  // Recurring events have no start: FullCalendar ignores `start` and
-  // `date` once a recurrence field is set. Otherwise it reads `date` as
-  // the start when there's no `start`, as written.
-  if (!RecurrenceFields.some(isSet)) {
-    const [field, start] =
-      event.start === undefined && isSet("date")
-        ? ["date", spec.date]
-        : ["start", event.start];
-    if (start === undefined) {
-      errors.push("No start, so this event can't appear on any calendar.");
-    } else if (typeof start === "string" && !isCalendarReadable(start)) {
-      errors.push(
-        `Can't read ${field} "${start}" as a date, so this event can't appear on any calendar.`
-      );
-    }
-  }
-
-  for (const field of ["start", "end"]) {
-    if (looksLikeCompactDate(spec[field])) {
-      warnings.push(
-        `${field} ${String(spec[field])} is read as milliseconds since 1970; to mean a date, quote it: '${String(spec[field])}'.`
-      );
-    }
+  // FullCalendar ignores `start`, `end` and `date` once a recurrence field
+  // has a value, so their checks don't apply to recurring events.
+  if (!RecurrenceFields.some((field) => Boolean(spec[field]))) {
+    checkTimes(spec, event, isSet, errors, warnings);
   }
 
   for (const field of Object.keys(spec)) {
@@ -281,13 +264,51 @@ export function checkEvent(
     warnings.push(`No title, so this event is shown as "${event.title}".`);
   }
 
+  return { errors, warnings };
+}
+
+function checkTimes(
+  spec: Record<string, unknown>,
+  event: EventSpec,
+  isSet: (field: string) => boolean,
+  errors: string[],
+  warnings: string[]
+): void {
+  // FullCalendar reads `date`, as written, as the start when there's no
+  // `start`.
+  const start: { field: string; value: unknown } =
+    event.start === undefined && isSet("date")
+      ? { field: "date", value: spec.date }
+      : { field: "start", value: event.start };
+  if (start.value === undefined) {
+    errors.push("No start, so this event can't appear on any calendar.");
+  } else if (
+    typeof start.value === "string" &&
+    !isCalendarReadable(start.value)
+  ) {
+    errors.push(
+      `Can't read ${start.field} "${start.value}" as a date, so this event can't appear on any calendar.`
+    );
+  }
+
+  for (const field of ["start", "end", "date"]) {
+    const value = spec[field];
+    if (looksLikeUnquotedDate(value)) {
+      warnings.push(
+        `${field} ${String(value)} is read as milliseconds since 1970; to mean a date, quote it: '${String(value)}'.`
+      );
+    }
+  }
+
   if (
     event.start !== undefined &&
     event.end !== undefined &&
-    endsByStart(event.start, event.end)
+    endsByStart(event.start, event.end, event.allDay === true)
   ) {
     warnings.push(
-      `end (${event.end}) isn't after start (${event.start}), so calendars ignore the end.`
+      event.allDay
+        ? `end (${event.end}) is before start (${event.start}), so calendars ignore the end.`
+        : `end (${event.end}) isn't after start (${event.start}), so calendars ignore the end.`
     );
   }
 
@@ -311,6 +332,4 @@ export function checkEvent(
       );
     }
   }
-
-  return { errors, warnings };
 }

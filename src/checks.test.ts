@@ -117,6 +117,13 @@ describe("readEventBlock", () => {
       ]);
     });
 
+    test("on a missing start when a recurrence field is empty", () => {
+      // FullCalendar only treats an event as recurring if one has a value.
+      expect(problems("title: Class\nstartRecur: ''").errors).toEqual([
+        "No start, so this event can't appear on any calendar.",
+      ]);
+    });
+
     test("not on the start of a recurring event, which FullCalendar ignores", () => {
       expect(
         problems("title: Class\ndaysOfWeek: [1]\nstartTime: '10:00'\nstart: '10:00'")
@@ -205,9 +212,35 @@ describe("readEventBlock", () => {
       const { event, warnings } = readEventBlock(
         `title: Parade\nstart: "${from}"\nend: "${to}"`
       );
+      const relation = event.allDay ? "is before" : "isn't after";
       expect(warnings).toEqual([
-        `end (${event.end}) isn't after start (${event.start}), so calendars ignore the end.`,
+        `end (${event.end}) ${relation} start (${event.start}), so calendars ignore the end.`,
       ]);
+    });
+
+    test("not on an all-day end on the start's own day", () => {
+      // Dropping it leaves the same one-day event.
+      expect(
+        problems("title: Fair\nstart: 2021-11-01\nend: 2021-11-01").warnings
+      ).toEqual([]);
+    });
+
+    test("not on the times of a recurring event, which FullCalendar ignores", () => {
+      expect(
+        problems(
+          "title: Class\ndaysOfWeek: [1]\nstart: 2021-11-01T10:00\nend: 2021-11-01T09:00\nstartTimeZone: Europe/Paris"
+        ).warnings
+      ).toEqual([]);
+    });
+
+    test.each([
+      ["start", "2021"],
+      ["start", "202111"],
+      ["date", "20211101"],
+    ])("on an unquoted %s of %s", (field, value) => {
+      expect(problems(`title: Trip\n${field}: ${value}`).warnings).toContain(
+        `${field} ${value} is read as milliseconds since 1970; to mean a date, quote it: '${value}'.`
+      );
     });
 
     test.each([["start"], ["end"]])(

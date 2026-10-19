@@ -174,8 +174,10 @@ Warnings appear in a small line under the summary; the event still appears on ca
 
 - A field that looks like a misspelling of a known one, such as `colour`, `tags`, `timezone` or `titel`.  Fields that don't resemble a known one are left alone, since they may be your own.
 - There is no `title`, so the event is called "Untitled event".
-- The `end` isn't after the `start`, so calendars ignore the `end`.
-- A `start` or `end` like `20211101` without quotes, which YAML reads as a number, and so as milliseconds since 1970.  Quote it (`'20211101'`) to mean the date.
+- The `end` isn't after the `start` (for an all-day event, is before it), so calendars ignore the `end`.
+- A `start`, `end` or `date` like `20211101` or `2021` without quotes, which YAML reads as a number, and so as milliseconds since 1970.  Quote it (`'20211101'`) to mean the date.
+
+Recurring events (`daysOfWeek`, `startTime`, `startRecur` and friends) skip the checks on `start`, `end` and `date`, since FullCalendar ignores those for them.
 - Only one of `startTimeZone` and `endTimeZone` is set, so the other time is read in the event's `timeZone`, or the itinerary's time zone if it has none.
 
 ### Expressions
