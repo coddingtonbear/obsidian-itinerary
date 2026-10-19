@@ -69,6 +69,12 @@
   border: 1px solid var(--background-modifier-border);
   padding: 2px 5px;
 }
+.itinerary-event .itinerary-event-edit {
+  margin-left: auto;
+}
+.itinerary-event .tags + .itinerary-event-edit {
+  margin-left: 0;
+}
 
 /* The classic theme fixes a 16px font; follow the note instead. */
 .itinerary-calendar {

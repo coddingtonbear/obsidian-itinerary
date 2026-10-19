@@ -11,13 +11,13 @@ import {
   completeTag,
   defaultTimeZone,
   emptyEventForm,
-  eventBlock,
-  parseTagInput,
   setEndTimeZone,
   setStartTimeZone,
   suggestTags,
   suggestTimeZones,
   switchAllDay,
+  tagFieldText,
+  tagsFromField,
   validateEventForm,
 } from "./eventForm";
 
@@ -59,10 +59,20 @@ function timeZones(): string[] {
   return zoneList;
 }
 
-/** The "Insert itinerary event" form. `onSubmit` receives the finished
- * `itinerary-event` block. */
+/** How the form is used when editing an event rather than inserting one. */
+export interface EventModalOptions {
+  heading: string;
+  submitText: string;
+  values: EventFormValues;
+}
+
+/** The "Insert itinerary event" form, also used to edit an event.
+ * `onSubmit` receives the form's values once they're valid. */
 export class EventModal extends Modal {
-  private values: EventFormValues = emptyEventForm(defaultTimeZone());
+  private values: EventFormValues;
+  private readonly initialTags: string[];
+  private readonly heading: string;
+  private readonly submitText: string;
   private startInput!: TextComponent;
   private endInput!: TextComponent;
   private endSetting!: Setting;
@@ -74,17 +84,23 @@ export class EventModal extends Modal {
   constructor(
     app: App,
     private knownTags: string[],
-    private onSubmit: (block: string) => void
+    private onSubmit: (values: EventFormValues) => void,
+    options?: EventModalOptions
   ) {
     super(app);
+    this.heading = options?.heading ?? "Insert itinerary event";
+    this.submitText = options?.submitText ?? "Insert";
+    this.values = options?.values ?? emptyEventForm(defaultTimeZone());
+    this.initialTags = this.values.tags;
   }
 
   onOpen(): void {
-    this.setTitle("Insert itinerary event");
+    this.setTitle(this.heading);
     const { contentEl } = this;
     contentEl.addClass("itinerary-event-form");
 
     new Setting(contentEl).setName("Title").addText((text) => {
+      text.setValue(this.values.title);
       text.onChange((value) => (this.values.title = value));
       window.setTimeout(() => text.inputEl.focus(), 0);
     });
@@ -142,7 +158,10 @@ export class EventModal extends Modal {
       .setName("Tags")
       .setDesc("Separate tags with commas, as in: hotel, flight.")
       .addText((text) => {
-        text.onChange((value) => (this.values.tags = parseTagInput(value)));
+        text.setValue(tagFieldText(this.values.tags));
+        text.onChange(
+          (value) => (this.values.tags = tagsFromField(value, this.initialTags))
+        );
         new ListSuggest(
           this.app,
           text,
@@ -157,6 +176,7 @@ export class EventModal extends Modal {
         "Any CSS color, such as red or #3a7bd5. Leave empty for the theme's accent color."
       )
       .addText((text) => {
+        text.setValue(this.values.color);
         text.onChange((value) => (this.values.color = value));
       });
 
@@ -165,7 +185,7 @@ export class EventModal extends Modal {
     new Setting(contentEl)
       .addButton((button) =>
         button
-          .setButtonText("Insert")
+          .setButtonText(this.submitText)
           .setCta()
           .onClick(() => this.submit())
       )
@@ -238,7 +258,7 @@ export class EventModal extends Modal {
       }
       return;
     }
-    this.onSubmit(eventBlock(this.values));
+    this.onSubmit(this.values);
     this.close();
   }
 }

@@ -1,6 +1,12 @@
-import { MarkdownPostProcessorContext, Plugin, TFile } from "obsidian";
+import { MarkdownPostProcessorContext, Notice, Plugin, TFile } from "obsidian";
 
-import { padForInsertion, tagsInNote } from "./eventForm";
+import {
+  EventEdit,
+  readEventForEdit,
+  replaceEventBlock,
+  serializeEditedEvent,
+} from "./eventEdit";
+import { eventBlock, padForInsertion, tagsInNote } from "./eventForm";
 import { EventModal } from "./eventModal";
 import { getEventInformation, parseEventSpec } from "./extractor";
 import { ItineraryRenderer, renderErrorPre, renderEvent } from "./render";
@@ -52,20 +58,21 @@ export default class Itinerary extends Plugin {
     this.registerMarkdownCodeBlockProcessor("itinerary", (source, el, ctx) =>
       this.renderItinerary(source, el, ctx)
     );
-    this.registerMarkdownCodeBlockProcessor("itinerary-event", (source, el) =>
-      this.renderEvent(source, el)
+    this.registerMarkdownCodeBlockProcessor(
+      "itinerary-event",
+      (source, el, ctx) => this.renderEvent(source, el, ctx)
     );
 
     this.addCommand({
       id: "insert-event",
       name: "Insert event",
       editorCallback: (editor) => {
-        new EventModal(this.app, tagsInNote(editor.getValue()), (block) => {
+        new EventModal(this.app, tagsInNote(editor.getValue()), (values) => {
           const from = editor.getCursor("from");
           const to = editor.getCursor("to");
           editor.replaceSelection(
             padForInsertion(
-              block,
+              eventBlock(values),
               editor.getLine(from.line).slice(0, from.ch),
               editor.getLine(to.line).slice(to.ch)
             )
@@ -124,11 +131,72 @@ export default class Itinerary extends Plugin {
     }
   }
 
-  private renderEvent(source: string, el: HTMLElement): void {
+  private renderEvent(
+    source: string,
+    el: HTMLElement,
+    ctx: MarkdownPostProcessorContext
+  ): void {
     try {
-      renderEvent(el, parseEventSpec(source));
+      renderEvent(el, parseEventSpec(source), () =>
+        this.editEvent(source, el, ctx)
+      );
     } catch (e) {
       renderErrorPre(el, errorMessage(e));
+    }
+  }
+
+  /** Opens the event form on a rendered event, and rewrites its block in
+   * place when the form is saved. */
+  private editEvent(
+    source: string,
+    el: HTMLElement,
+    ctx: MarkdownPostProcessorContext
+  ): void {
+    let edit: EventEdit;
+    try {
+      edit = readEventForEdit(source);
+    } catch (e) {
+      new Notice(errorMessage(e));
+      return;
+    }
+    const noteText = ctx.getSectionInfo(el)?.text ?? "";
+    new EventModal(
+      this.app,
+      tagsInNote(noteText),
+      (values) => {
+        void this.rewriteEvent(source, el, ctx, { ...edit, values });
+      },
+      { heading: "Edit itinerary event", submitText: "Save", values: edit.values }
+    ).open();
+  }
+
+  private async rewriteEvent(
+    source: string,
+    el: HTMLElement,
+    ctx: MarkdownPostProcessorContext,
+    edit: EventEdit
+  ): Promise<void> {
+    // Looked up now rather than when the form opened, since the note may
+    // have changed (and been re-rendered) while it was open.
+    const at = ctx.getSectionInfo(el);
+    const file = this.app.vault.getFileByPath(ctx.sourcePath);
+    if (!at || !file) {
+      new Notice("Couldn't find this event in its note to change it.");
+      return;
+    }
+    let replaced = true;
+    await this.app.vault.process(file, (data) => {
+      const next = replaceEventBlock(data, at, source, serializeEditedEvent(edit));
+      if (next === null) {
+        replaced = false;
+        return data;
+      }
+      return next;
+    });
+    if (!replaced) {
+      new Notice(
+        "This event changed in its note while the form was open, so it was left as it is."
+      );
     }
   }
 }

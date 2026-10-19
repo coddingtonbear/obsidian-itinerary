@@ -1,4 +1,4 @@
-import { MarkdownRenderChild } from "obsidian";
+import { MarkdownRenderChild, setIcon } from "obsidian";
 
 import { Calendar, CalendarOptions, EventInput } from "fullcalendar";
 import dayGridPlugin from "fullcalendar/daygrid";
@@ -218,8 +218,13 @@ export function toEventInput(event: EventSpec): EventInput {
   return result;
 }
 
-/** Renders an event's summary where its `itinerary-event` block appears. */
-export function renderEvent(container: HTMLElement, event: EventSpec): void {
+/** Renders an event's summary where its `itinerary-event` block appears,
+ * with an edit button when there's an `onEdit` to call. */
+export function renderEvent(
+  container: HTMLElement,
+  event: EventSpec,
+  onEdit?: () => void
+): void {
   if (event.hidden) {
     return;
   }
@@ -248,6 +253,21 @@ export function renderEvent(container: HTMLElement, event: EventSpec): void {
     for (const tagName of tags) {
       tagList.createDiv({ cls: "tag", text: tagName });
     }
+  }
+
+  if (onEdit) {
+    const button = element.createEl("button", {
+      cls: ["clickable-icon", "itinerary-event-edit"],
+    });
+    button.setAttribute("aria-label", "Edit event");
+    setIcon(button, "pencil");
+    button.addEventListener("click", (evt) => {
+      // Otherwise live preview takes the click as one to edit the block's
+      // source.
+      evt.preventDefault();
+      evt.stopPropagation();
+      onEdit();
+    });
   }
 }
 

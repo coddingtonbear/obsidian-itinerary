@@ -127,6 +127,13 @@ If you'd rather not remember which fields an event takes, run **Itinerary: Inser
 - The end can't be before the start, comparing the two in their own zones: a flight that lands at an earlier clock time than it took off is fine.
 - The tags field suggests tags already used by events in the same note.
 
+To change an event later, click the pencil button on its summary in your note.  The same form opens, filled in with the event's values, and **Save** rewrites the block where it is.
+
+- Fields the form doesn't show (`url`, `display`, `backgroundColor`, and any other event option) are kept as they were, after the form's own.  Comments in the block aren't kept.
+- A time written with an offset or zone (`2021-11-01T12:00Z`, `…+05:30`, `…[Europe/Paris]`) is shown as the same moment on the clock of the event's time zone, or of the zone it was written in if the event has none; saving writes it that way.
+- A tag containing a comma can't be typed in the tags field, so it isn't shown there, but it is kept.
+- If the block changes in the note while the form is open, saving leaves it alone and says so.
+
 
 ## Options
 
