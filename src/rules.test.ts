@@ -117,6 +117,16 @@ describe("applyRules", () => {
     expect(event).toMatchObject({ backgroundColor: "red", borderColor: "red" });
   });
 
+  test("lets a higher rule's null color undo a lower rule's color", () => {
+    const { event } = apply("title: X", [
+      rule("1 == 1", { color: null }),
+      rule("1 == 1", { color: "blue" }),
+    ]);
+    expect(event).not.toHaveProperty("color");
+    expect(event).not.toHaveProperty("backgroundColor");
+    expect(event).not.toHaveProperty("borderColor");
+  });
+
   test("reads rule values as event values", () => {
     const { event } = apply("title: X", [
       rule("1 == 1", { hidden: "no", allDay: "false", order: "2" }),

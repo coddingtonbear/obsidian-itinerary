@@ -10,6 +10,7 @@ import {
 import {
   EventRule,
   checkWhen,
+  compileRules,
   parseRulePatch,
   readRuleField,
   ruleLabel,
@@ -73,7 +74,6 @@ export class ItinerarySettingTab extends PluginSettingTab {
       // Not update(): that would re-render the field being typed in, and
       // rewrite "Set" from the saved options mid-edit. The list's names and
       // warnings catch up the next time it's shown.
-      this.refreshDomState();
       this.saveSoon();
     }
   }
@@ -90,7 +90,9 @@ export class ItinerarySettingTab extends PluginSettingTab {
       type: "page",
       name: ruleLabel(rule, index),
       desc: rule.when,
-      status: () => (checkWhen(rule.when) === null ? null : "warning"),
+      // Also catches options saved before they were checked.
+      status: () =>
+        compileRules([rule])[0].error === undefined ? null : "warning",
       items: [
         {
           name: "Name",

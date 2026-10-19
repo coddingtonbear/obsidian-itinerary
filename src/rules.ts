@@ -215,19 +215,21 @@ export function ruleLabel(rule: EventRule, index: number): string {
   return rule.name.trim() !== "" ? rule.name : `#${index + 1}`;
 }
 
-/** The colors an event's options imply, as parseEventSpec reads them:
- * `color` sets the background and border unless they're set themselves. */
+/** The colors a rule's options imply, as parseEventSpec reads them:
+ * `color` sets the background and border unless they're set themselves,
+ * and so does a `null` color, which removes them. */
 function withColorFallbacks(
   options: Record<string, unknown>
 ): Record<string, unknown> {
   const { color } = options;
-  if (typeof color !== "string") {
+  if (typeof color !== "string" && color !== null) {
     return options;
   }
   return {
     ...options,
-    backgroundColor: options.backgroundColor ?? color,
-    borderColor: options.borderColor ?? color,
+    backgroundColor:
+      "backgroundColor" in options ? options.backgroundColor : color,
+    borderColor: "borderColor" in options ? options.borderColor : color,
   };
 }
 

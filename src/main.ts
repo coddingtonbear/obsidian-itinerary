@@ -70,7 +70,10 @@ export default class Itinerary extends Plugin implements RuleSettingsHost {
       this.rules = normalizeRules(isRecord(data) ? data.rules : undefined);
       this.ruleBook.setRules(this.rules);
     } catch (e) {
+      // No settings tab, so nothing can save over the rules that couldn't
+      // be read (data.json edited by hand, say).
       new Notice(`Itinerary couldn't load its event rules: ${errorMessage(e)}`);
+      return;
     }
     this.addSettingTab(new ItinerarySettingTab(this.app, this));
   }
