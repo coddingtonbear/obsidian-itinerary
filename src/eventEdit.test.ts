@@ -2,6 +2,7 @@ import { describe, test, expect } from "vitest";
 import { Temporal } from "temporal-polyfill";
 
 import {
+  findEventBlockEdit,
   readEventForEdit,
   replaceEventBlock,
   serializeEditedEvent,
@@ -226,6 +227,47 @@ describe("saving an event unchanged", () => {
     );
   });
 
+  test("keeps the zone fields as they were written", () => {
+    expect(
+      saveUnchanged("title: Hotel\nstart: 2021-11-01\nend: 2021-11-03\ntimeZone: Europe/Paris")
+    ).toBe("title: Hotel\nallDay: true\nstart: 2021-11-01\nend: 2021-11-03\ntimeZone: Europe/Paris");
+    expect(
+      saveUnchanged(
+        "title: A\nstart: 2021-11-01T09:00\nend: 2021-11-01T10:00\nstartTimeZone: Europe/Paris\nendTimeZone: Europe/Paris"
+      )
+    ).toBe(
+      "title: A\nstart: 2021-11-01T09:00\nend: 2021-11-01T10:00\nstartTimeZone: Europe/Paris\nendTimeZone: Europe/Paris"
+    );
+  });
+
+  test("keeps an all-day event's zone when it's changed to a timed one", () => {
+    const edit = readEventForEdit("title: A\nstart: 2021-11-01\ntimeZone: Europe/Paris");
+    expect(
+      serializeEditedEvent({
+        ...edit,
+        values: { ...edit.values, allDay: false, start: "2021-11-01T09:00" },
+      })
+    ).toBe("title: A\nstart: 2021-11-01T09:00\ntimeZone: Europe/Paris");
+  });
+
+  test("writes the form's zones once they're changed", () => {
+    const edit = readEventForEdit(
+      "title: A\nstart: 2021-11-01T09:00\nend: 2021-11-01T10:00\nstartTimeZone: Europe/Paris\nendTimeZone: Europe/Paris"
+    );
+    expect(
+      serializeEditedEvent({
+        ...edit,
+        values: { ...edit.values, startTimeZone: "Asia/Tokyo", endTimeZone: "Asia/Tokyo" },
+      })
+    ).toBe("title: A\nstart: 2021-11-01T09:00\nend: 2021-11-01T10:00\ntimeZone: Asia/Tokyo");
+  });
+
+  test("writes the zone a time was written in when the event had none", () => {
+    expect(saveUnchanged("title: A\nstart: 2021-11-01T12:00Z")).toBe(
+      "title: A\nstart: 2021-11-01T12:00\ntimeZone: UTC"
+    );
+  });
+
   test("writes the kept fields after the form's", () => {
     expect(
       saveUnchanged("url: https://example.com\ntitle: A\nstart: 2021-11-01\ndisplay: block")
@@ -299,6 +341,20 @@ describe("replaceEventBlock", () => {
     expect(replaceEventBlock(doc, { lineStart: 0, lineEnd: 2 }, "title: Old", body)).toBeNull();
     const moved = "Inserted\n```itinerary-event\ntitle: Old\n```";
     expect(replaceEventBlock(moved, { lineStart: 0, lineEnd: 2 }, "title: Old", body)).toBeNull();
+  });
+
+  test("doesn't take a line ending in backticks for the closing fence", () => {
+    const doc = "```itinerary-event\nnote: use ```\ntitle: Old\n```";
+    expect(
+      replaceEventBlock(doc, { lineStart: 0, lineEnd: 3 }, "note: use ```\ntitle: Old", "title: New")
+    ).toBe("```itinerary-event\ntitle: New\n```");
+  });
+
+  test("gives the edit as a range of lines, for an editor", () => {
+    const doc = "# Trip\n```itinerary-event\ntitle: Old\nstart: 2021-11-01\n```\nAfter";
+    expect(
+      findEventBlockEdit(doc, { lineStart: 1, lineEnd: 4 }, "title: Old\nstart: 2021-11-01", "title: New")
+    ).toEqual({ fromLine: 2, toLine: 4, text: "title: New\n" });
   });
 
   test("refuses when two blocks in the section match", () => {

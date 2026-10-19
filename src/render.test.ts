@@ -63,6 +63,7 @@ describe("renderEvent", () => {
     const el = document.createElement("div");
     const outside = vi.fn();
     el.addEventListener("click", outside);
+    el.addEventListener("mousedown", outside);
     const onEdit = vi.fn();
     renderEvent(el, event({}), onEdit);
 
@@ -70,6 +71,7 @@ describe("renderEvent", () => {
       'button[aria-label="Edit event"]'
     );
     expect(button?.dataset.icon).toBe("pencil");
+    button?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     button?.click();
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(outside).not.toHaveBeenCalled();

@@ -1,7 +1,15 @@
-import { MarkdownPostProcessorContext, Notice, Plugin, TFile } from "obsidian";
+import {
+  MarkdownPostProcessorContext,
+  MarkdownView,
+  Notice,
+  Plugin,
+  TFile,
+} from "obsidian";
 
 import {
+  BlockLocation,
   EventEdit,
+  findEventBlockEdit,
   readEventForEdit,
   replaceEventBlock,
   serializeEditedEvent,
@@ -80,6 +88,44 @@ export default class Itinerary extends Plugin {
         }).open();
       },
     });
+  }
+
+  /** Replaces the event block's body. A note open in an editor is changed
+   * there, since the section info describes the editor's text (which may
+   * not be saved yet), and so the change can be undone like any other;
+   * otherwise the file itself is. */
+  private async replaceInNote(
+    file: TFile,
+    at: BlockLocation,
+    source: string,
+    body: string
+  ): Promise<boolean> {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      if (view instanceof MarkdownView && view.file?.path === file.path) {
+        const editor = view.editor;
+        const edit = findEventBlockEdit(editor.getValue(), at, source, body);
+        if (edit === null) {
+          return false;
+        }
+        editor.replaceRange(
+          edit.text,
+          { line: edit.fromLine, ch: 0 },
+          { line: edit.toLine, ch: 0 }
+        );
+        return true;
+      }
+    }
+    let replaced = true;
+    await this.app.vault.process(file, (data) => {
+      const next = replaceEventBlock(data, at, source, body);
+      if (next === null) {
+        replaced = false;
+        return data;
+      }
+      return next;
+    });
+    return replaced;
   }
 
   private async readEvents(path: DocumentPath): Promise<EventSpec[]> {
@@ -184,15 +230,14 @@ export default class Itinerary extends Plugin {
       new Notice("Couldn't find this event in its note to change it.");
       return;
     }
-    let replaced = true;
-    await this.app.vault.process(file, (data) => {
-      const next = replaceEventBlock(data, at, source, serializeEditedEvent(edit));
-      if (next === null) {
-        replaced = false;
-        return data;
-      }
-      return next;
-    });
+    const body = serializeEditedEvent(edit);
+    let replaced: boolean;
+    try {
+      replaced = await this.replaceInNote(file, at, source, body);
+    } catch (e) {
+      new Notice(`Couldn't save the event: ${errorMessage(e)}`);
+      return;
+    }
     if (!replaced) {
       new Notice(
         "This event changed in its note while the form was open, so it was left as it is."

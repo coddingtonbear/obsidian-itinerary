@@ -261,9 +261,13 @@ export function renderEvent(
     });
     button.setAttribute("aria-label", "Edit event");
     setIcon(button, "pencil");
+    // Otherwise live preview takes the press as one to edit the block's
+    // source, which it does on mousedown, before any click.
+    button.addEventListener("mousedown", (evt) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+    });
     button.addEventListener("click", (evt) => {
-      // Otherwise live preview takes the click as one to edit the block's
-      // source.
       evt.preventDefault();
       evt.stopPropagation();
       onEdit();

@@ -23,7 +23,18 @@ export interface EventEdit {
    * `allDay: true`; a block that said `false` keeps saying so, since a
    * filter on `allDay` can tell `false` from leaving it out. */
   saidAllDay: boolean;
+  /** The block's own zone fields, written back as they were while the
+   * form's zones are still the ones read from them. Otherwise an all-day
+   * event (whose zones the form doesn't write) would lose them, and
+   * `startTimeZone` and `endTimeZone` naming one zone would become a
+   * `timeZone`, which a filter can tell apart. Null when the form's zones
+   * came from somewhere else: a time's own offset or zone. */
+  zoneFields: Record<string, unknown> | null;
+  /** The zones the form started with, to tell whether they changed. */
+  readZones: { start: string; end: string };
 }
+
+const ZoneFields = ["timeZone", "startTimeZone", "endTimeZone"];
 
 /** The fields the form reads and writes; everything else is kept. */
 const FormFields = new Set([
@@ -31,9 +42,7 @@ const FormFields = new Set([
   "allDay",
   "start",
   "end",
-  "timeZone",
-  "startTimeZone",
-  "endTimeZone",
+  ...ZoneFields,
   "tag",
   "color",
 ]);
@@ -56,7 +65,8 @@ export function readEventForEdit(source: string): EventEdit {
   const start = withoutDateAnnotation(readTime(spec, "start"));
   const end = withoutDateAnnotation(readTime(spec, "end"));
   // As the extractor decides it, so the form shows what the calendar does.
-  const allDay = readBoolean(spec, "allDay") ?? hasOnlyDates(start, end);
+  const saidAllDay = readBoolean(spec, "allDay");
+  const allDay = saidAllDay ?? hasOnlyDates(start, end);
 
   const common = {
     title: readString(spec, "title") ?? "",
@@ -64,55 +74,79 @@ export function readEventForEdit(source: string): EventEdit {
     tags: getArrayForArrayOrObject(readTags(spec)),
     color: readString(spec, "color") ?? "",
   };
-  const kept = Object.fromEntries(
-    Object.entries(spec).filter(([field]) => !FormFields.has(field))
-  );
-  const saidAllDay = readBoolean(spec, "allDay") !== undefined;
+  const kept = pick(spec, (field) => !FormFields.has(field));
+  const zoneFields = pick(spec, (field) => ZoneFields.includes(field));
 
+  let values: EventFormValues;
   if (allDay) {
     const startDate = start === undefined ? "" : toCalendarDate("start", start);
     const startTimeZone = startZone ?? "";
     const endTimeZone = endZone ?? "";
-    return {
-      values: {
-        ...common,
-        start: startDate,
-        end: end === undefined ? "" : toLastDay(toCalendarDate("end", end), startDate),
-        startTimeZone,
-        endTimeZone,
-        endTimeZoneFollows: startTimeZone === endTimeZone,
-      },
-      kept,
-      saidAllDay,
+    values = {
+      ...common,
+      start: startDate,
+      end:
+        end === undefined
+          ? ""
+          : lastDayOf(toCalendarDate("end", end), startDate),
+      startTimeZone,
+      endTimeZone,
+      endTimeZoneFollows: startTimeZone === endTimeZone,
     };
-  }
-
-  const startTime = toFormTime(start, startZone);
-  const endTime =
-    end === undefined
-      ? { time: "", zone: startTime.zone }
-      : toFormTime(end, endZone);
-  return {
-    values: {
+  } else {
+    const startTime = toFormTime(start, startZone);
+    const endTime =
+      end === undefined
+        ? { time: "", zone: startTime.zone }
+        : toFormTime(end, endZone);
+    values = {
       ...common,
       start: startTime.time,
       end: endTime.time,
       startTimeZone: startTime.zone,
       endTimeZone: endTime.zone,
       endTimeZoneFollows: startTime.zone === endTime.zone,
-    },
+    };
+  }
+
+  const zonesFromFields =
+    values.startTimeZone === (startZone ?? "") &&
+    (end === undefined || values.endTimeZone === (endZone ?? ""));
+  return {
+    values,
     kept,
-    saidAllDay,
+    saidAllDay: saidAllDay !== undefined,
+    zoneFields: zonesFromFields ? zoneFields : null,
+    readZones: { start: values.startTimeZone, end: values.endTimeZone },
   };
+}
+
+function pick(
+  spec: Record<string, unknown>,
+  wanted: (field: string) => boolean
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(spec).filter(([field]) => wanted(field))
+  );
 }
 
 /** The body of an edited event's block: the form's fields, then the ones
  * it kept. */
 export function serializeEditedEvent(edit: EventEdit): string {
-  const lines = serializeEventForm(edit.values).split("\n");
-  if (edit.saidAllDay && !edit.values.allDay) {
+  const { values, zoneFields, readZones } = edit;
+  const keepZones =
+    zoneFields !== null &&
+    values.startTimeZone === readZones.start &&
+    values.endTimeZone === readZones.end;
+  const lines = serializeEventForm(
+    keepZones ? { ...values, startTimeZone: "", endTimeZone: "" } : values
+  ).split("\n");
+  if (edit.saidAllDay && !values.allDay) {
     // Where the form writes `allDay: true`: after the title.
     lines.splice(1, 0, "allDay: false");
+  }
+  if (keepZones && Object.keys(zoneFields).length > 0) {
+    lines.push(stringifyYaml(zoneFields).trimEnd());
   }
   if (Object.keys(edit.kept).length > 0) {
     lines.push(stringifyYaml(edit.kept).trimEnd());
@@ -122,7 +156,7 @@ export function serializeEditedEvent(edit: EventEdit): string {
 
 /** An all-day event's exclusive end as the form's inclusive last day. A
  * zero-length event (end on its start) keeps its one day. */
-function toLastDay(end: string, start: string): string {
+function lastDayOf(end: string, start: string): string {
   try {
     const lastDay = Temporal.PlainDate.from(end).subtract({ days: 1 });
     if (start !== "" && Temporal.PlainDate.compare(lastDay, start) < 0) {
@@ -200,18 +234,49 @@ export interface BlockLocation {
 }
 
 const OpeningFence = /^(.*?)(`{3,}|~{3,})[ \t]*itinerary-event[ \t]*$/;
-const ClosingFence = /^(.*?)(`{3,}|~{3,})[ \t]*$/;
+// Only indentation and quoting may precede a closing fence, so a body line
+// that merely ends in backticks doesn't close the block.
+const ClosingFence = /^([ \t>]*)(`{3,}|~{3,})[ \t]*$/;
+
+/** Lines `fromLine` up to (not including) `toLine` of a note, to be
+ * replaced by `text`: an edit an open editor can make as easily as a
+ * rewrite of the file. */
+export interface LineReplacement {
+  fromLine: number;
+  toLine: number;
+  text: string;
+}
 
 /** The note's text with the `itinerary-event` block whose body is
- * `source` replaced by `body`, keeping its fences and the indentation or
- * quoting it's written in. Returns null when exactly one such block can't
- * be found within `at`: the note has changed since the block was shown. */
+ * `source` replaced by `body`, or null; see findEventBlockEdit. */
 export function replaceEventBlock(
   doc: string,
   at: BlockLocation,
   source: string,
   body: string
 ): string | null {
+  const edit = findEventBlockEdit(doc, at, source, body);
+  if (edit === null) {
+    return null;
+  }
+  const lines = doc.split("\n");
+  return (
+    lines.slice(0, edit.fromLine).map((line) => line + "\n").join("") +
+    edit.text +
+    lines.slice(edit.toLine).join("\n")
+  );
+}
+
+/** The edit that replaces the body of the `itinerary-event` block whose
+ * body is `source` with `body`, keeping its fences and the indentation or
+ * quoting it's written in. Returns null when exactly one such block can't
+ * be found within `at`: the note has changed since the block was shown. */
+export function findEventBlockEdit(
+  doc: string,
+  at: BlockLocation,
+  source: string,
+  body: string
+): LineReplacement | null {
   const lines = doc.split("\n");
   const wanted = trimLines(source.split("\n"));
   const last = Math.min(at.lineEnd, lines.length - 1);
@@ -245,11 +310,11 @@ export function replaceEventBlock(
   const replacement = body
     .split("\n")
     .map((line) => (line === "" ? prefix.trimEnd() : prefix + line) + eol);
-  return [
-    ...lines.slice(0, open + 1),
-    ...replacement,
-    ...lines.slice(close),
-  ].join("\n");
+  return {
+    fromLine: open + 1,
+    toLine: close,
+    text: replacement.map((line) => line + "\n").join(""),
+  };
 }
 
 function findClosingFence(
