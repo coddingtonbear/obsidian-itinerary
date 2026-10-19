@@ -13,6 +13,9 @@
 | `src/format.ts` | Describes an event's time for its summary chip. |
 | `src/compat.ts` | Translates FullCalendar 5 and 6 options in itineraries to their FullCalendar 7 names. |
 | `src/render.ts` | Renders itineraries (FullCalendar 7) and event summaries. |
+| `src/eventForm.ts` | Validates the "Insert event" form's values and writes them as an `itinerary-event` block; tag and time zone suggestions. |
+| `src/eventModal.ts` | The "Insert event" form itself (an Obsidian `Modal`), also used to edit an event. Obsidian glue only. |
+| `src/eventEdit.ts` | Reads an existing `itinerary-event` block into the form's values (keeping the fields the form doesn't show) and rewrites the block in its note. |
 | `src/styles.css` | Plugin styles. esbuild bundles it with FullCalendar's stylesheets into `styles.css` (build output, not committed), mapping FullCalendar's theme variables onto Obsidian's. |
 | `mocks/obsidian.ts` | Runtime stand-in for the `obsidian` package in unit tests (Vitest). |
 

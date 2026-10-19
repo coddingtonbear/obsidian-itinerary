@@ -1,4 +1,4 @@
-import { MarkdownRenderChild } from "obsidian";
+import { MarkdownRenderChild, setIcon } from "obsidian";
 
 import { Calendar, CalendarOptions, EventInput } from "fullcalendar";
 import dayGridPlugin from "fullcalendar/daygrid";
@@ -218,8 +218,13 @@ export function toEventInput(event: EventSpec): EventInput {
   return result;
 }
 
-/** Renders an event's summary where its `itinerary-event` block appears. */
-export function renderEvent(container: HTMLElement, event: EventSpec): void {
+/** Renders an event's summary where its `itinerary-event` block appears,
+ * with an edit button when there's an `onEdit` to call. */
+export function renderEvent(
+  container: HTMLElement,
+  event: EventSpec,
+  onEdit?: () => void
+): void {
   if (event.hidden) {
     return;
   }
@@ -242,12 +247,36 @@ export function renderEvent(container: HTMLElement, event: EventSpec): void {
   element.createDiv({ cls: "name", text: event.title });
   element.createDiv({ cls: "date", text: describeEventTime(event) });
 
+  // Tags and the edit button wrap onto the next line together.
   const tags = getArrayForArrayOrObject(event.tag);
+  if (tags.length === 0 && !onEdit) {
+    return;
+  }
+  const end = element.createDiv({ cls: "itinerary-event-end" });
   if (tags.length > 0) {
-    const tagList = element.createDiv({ cls: "tags" });
+    const tagList = end.createDiv({ cls: "tags" });
     for (const tagName of tags) {
       tagList.createDiv({ cls: "tag", text: tagName });
     }
+  }
+
+  if (onEdit) {
+    const button = end.createEl("button", {
+      cls: ["clickable-icon", "itinerary-event-edit"],
+    });
+    button.setAttribute("aria-label", "Edit event");
+    setIcon(button, "pencil");
+    // Otherwise live preview takes the press as one to edit the block's
+    // source, which it does on mousedown, before any click.
+    button.addEventListener("mousedown", (evt) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+    });
+    button.addEventListener("click", (evt) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      onEdit();
+    });
   }
 }
 

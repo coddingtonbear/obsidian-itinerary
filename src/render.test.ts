@@ -53,6 +53,38 @@ describe("renderEvent", () => {
     expect(el.querySelector(".name")?.textContent).toBe("<b>bold</b>");
   });
 
+  test("keeps its tags and edit button together, to wrap as one", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({ tag: ["hotel"] }), () => undefined);
+    const tags = el.querySelector(".tags");
+    expect(tags?.parentElement).toBe(el.querySelector("button")?.parentElement);
+    expect(tags?.parentElement).not.toBe(el.querySelector(".itinerary-event"));
+  });
+
+  test("has no edit button unless given something to call", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({}));
+    expect(el.querySelector("button")).toBeNull();
+  });
+
+  test("calls onEdit from its edit button, keeping the click to itself", () => {
+    const el = document.createElement("div");
+    const outside = vi.fn();
+    el.addEventListener("click", outside);
+    el.addEventListener("mousedown", outside);
+    const onEdit = vi.fn();
+    renderEvent(el, event({}), onEdit);
+
+    const button = el.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit event"]'
+    );
+    expect(button?.dataset.icon).toBe("pencil");
+    button?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    button?.click();
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(outside).not.toHaveBeenCalled();
+  });
+
   test("renders nothing for a hidden event", () => {
     const el = document.createElement("div");
     renderEvent(el, event({ hidden: true }));
