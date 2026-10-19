@@ -136,13 +136,17 @@ function translateRenamedAndRemoved(
     const value = options[legacy];
     delete options[legacy];
     for (const replacement of replacements) {
-      if (!(replacement in options)) {
-        options[replacement] = value;
+      if (replacement in options) {
+        notes.push(
+          `Option '${path}${legacy}' is now '${replacements.join("' and '")}'; ignored it for '${replacement}', which is also set.`
+        );
+        continue;
       }
+      options[replacement] = value;
+      notes.push(
+        `Option '${path}${legacy}' is now '${replacements.join("' and '")}'; used it as '${replacement}'.`
+      );
     }
-    notes.push(
-      `Option '${path}${legacy}' is now '${replacements.join("' and '")}'; used it as those.`
-    );
   }
 
   for (const removed of RemovedOptions) {

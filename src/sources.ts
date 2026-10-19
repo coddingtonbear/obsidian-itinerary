@@ -35,7 +35,7 @@ export function resolveSourcePath(
   // As in version 1, a path to a note that doesn't exist yet is kept: its
   // events appear once the note is created. Obsidian adds `.md` to the
   // notes it creates, so the path gets it too.
-  // A name may contain dots of its own (`Trip v1.2`); only a trailing
-  // dot-and-word with a letter in it counts as an extension.
-  return /\.[a-z0-9]*[a-z][a-z0-9]*$/i.test(trimmed) ? trimmed : `${trimmed}.md`;
+  // Note names often contain dots of their own (`Dr.Smith`, `Trip v1.2`),
+  // so anything not already ending in `.md` is taken to be a note's name.
+  return trimmed.toLowerCase().endsWith(".md") ? trimmed : `${trimmed}.md`;
 }

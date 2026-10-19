@@ -272,8 +272,14 @@ describe("parseEventSpec validation", () => {
     }
   });
 
-  test("treats a compact date as a date", () => {
-    expect(parseEventSpec("start: '20211101'").allDay).toBe(true);
+  test("treats a compact date as a date, written in full", () => {
+    const evt = parseEventSpec("start: '20211101'");
+    expect(evt.allDay).toBe(true);
+    expect(evt.start).toBe("2021-11-01");
+  });
+
+  test("does not treat a half-compact date as a date", () => {
+    expect(parseEventSpec("start: '2021-1101T10:00'").allDay).toBeUndefined();
   });
 
   test("accepts a calendar annotation in brackets", () => {

@@ -72,9 +72,9 @@ describe("resolveSourcePath", () => {
     );
   });
 
-  test("keeps the extension of a missing file that has one", () => {
-    expect(resolveSourcePath("Data/flights.txt", "index.md", vault)).toBe(
-      "Data/flights.txt"
+  test("adds .md to a missing note with a dot in its name", () => {
+    expect(resolveSourcePath("People/Dr.Smith", "index.md", vault)).toBe(
+      "People/Dr.Smith.md"
     );
   });
 

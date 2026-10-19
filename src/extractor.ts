@@ -90,7 +90,7 @@ function readTags(
   return readString(spec, "tag");
 }
 
-const DateOnlyPattern = /^\d{4}-?\d{2}-?\d{2}$/;
+const DateOnlyPattern = /^\d{4}(?:-\d{2}-\d{2}|\d{4})$/;
 
 /** A date with a zone annotation but no time, e.g. `2021-11-01[Europe/Paris]`. */
 const AnnotatedDatePattern = /^(\d{4}-\d{2}-\d{2})\[[^\]]*\]$/;
@@ -191,7 +191,9 @@ function toCalendarTime(field: string, time: string): string {
  * date, which can move it a day; an all-day event means the date written. */
 function toCalendarDate(field: string, time: string): string {
   if (isDateOnly(time)) {
-    return time;
+    // Written in full, so a compact `20211101` compares as text in date
+    // order with the dates filters are written with.
+    return Temporal.PlainDate.from(time.trim()).toString();
   }
   try {
     // Accepts offsets and bracketed zones, and keeps the date as written.

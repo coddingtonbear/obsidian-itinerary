@@ -126,6 +126,18 @@ describe("translateLegacyOptions", () => {
     expect(options.inlineWeekNumberContent).toBe("W");
   });
 
+  test("says when a split option was ignored for an already-set one", () => {
+    const { options, notes } = translateLegacyOptions({
+      weekNumberContent: "W",
+      inlineWeekNumberContent: "I",
+    });
+    expect(options.inlineWeekNumberContent).toBe("I");
+    expect(options.weekNumberHeaderContent).toBe("W");
+    expect(notes).toContainEqual(
+      expect.stringMatching(/ignored it for 'inlineWeekNumberContent'/)
+    );
+  });
+
   test("drops removed options", () => {
     const { options, notes } = translateLegacyOptions({
       titleRangeSeparator: " to ",

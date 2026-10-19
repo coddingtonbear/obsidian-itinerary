@@ -345,7 +345,7 @@ A few things do behave differently:
 
 ## Styling
 
-The calendar takes its colors from your Obsidian theme through FullCalendar's `--fc-classic-*` CSS variables.  To change them with a CSS snippet, set them on `.itinerary-calendar, .itinerary-popover` (the popover is the "+N more" list), e.g. `--fc-classic-today: rgba(255, 200, 0, 0.1)`.
+The calendar takes its colors from your Obsidian theme through FullCalendar's `--fc-classic-*` CSS variables.  To change them with a CSS snippet, set them on `.itinerary-calendar, .itinerary-popover, .itinerary-event` (the popover is the "+N more" list; `.itinerary-event` is an event's summary in your note), e.g. `--fc-classic-today: rgba(255, 200, 0, 0.1)`.
 
 ## Development
 
