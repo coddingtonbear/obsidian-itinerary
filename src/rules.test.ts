@@ -109,6 +109,39 @@ describe("applyRules", () => {
     ]);
   });
 
+  test("lets a higher rule's color beat a lower rule's background", () => {
+    const { event } = apply("title: X", [
+      rule("1 == 1", { color: "red" }),
+      rule("1 == 1", { backgroundColor: "blue" }),
+    ]);
+    expect(event).toMatchObject({ backgroundColor: "red", borderColor: "red" });
+  });
+
+  test("reads rule values as event values", () => {
+    const { event } = apply("title: X", [
+      rule("1 == 1", { hidden: "no", allDay: "false", order: "2" }),
+    ]);
+    expect(event).toMatchObject({ hidden: false, allDay: false, order: 2 });
+  });
+
+  test("credits a removed field to the rule that removed it", () => {
+    const { event, matches } = apply("title: X", [
+      rule("1 == 1", { order: null }, "Unset"),
+      rule("1 == 1", { order: 3 }, "Set"),
+    ]);
+    expect(event).not.toHaveProperty("order");
+    expect(matches).toEqual([
+      { name: "Unset", fields: [] },
+      { name: "Set", fields: [] },
+    ]);
+  });
+
+  test("skips a rule whose options are invalid", () => {
+    const compiled = compileRules([rule("1 == 1", { hidden: "maybe" })]);
+    expect(compiled[0].filter).toBeNull();
+    expect(compiled[0].error).toMatch(/hidden/);
+  });
+
   test("matches every rule against the event as written", () => {
     // The second rule would match if it saw the first rule's color.
     const { matches } = apply("title: Nikko\ntag: hotel", [
@@ -182,6 +215,18 @@ describe("parseRulePatch", () => {
     expect(() => parseRulePatch("- a")).toThrow(/key: value/);
     expect(() => parseRulePatch("a: [")).toThrow(/Could not parse YAML/);
     expect(() => parseRulePatch("order: first")).toThrow(/"order"/);
+    expect(() => parseRulePatch("hidden: maybe")).toThrow(/"hidden"/);
+  });
+
+  test("rejects options read before rules apply", () => {
+    expect(() => parseRulePatch("title: Hotel")).toThrow(
+      /"title" can't be set by a rule/
+    );
+    expect(() => parseRulePatch("timeZone: UTC")).toThrow(/timeZone/);
+  });
+
+  test("keeps nulls, which remove an option", () => {
+    expect(parseRulePatch("color: ~")).toEqual({ color: null });
   });
 });
 

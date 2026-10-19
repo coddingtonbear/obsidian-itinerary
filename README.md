@@ -193,7 +193,9 @@ Rules apply to every event in your vault, both on itineraries and in the event s
 - Every rule's expression is matched against the event as you wrote it, so one rule can't make another one match (a rule matching `color == "brown"` won't see a color another rule set).
 - Every matching rule applies, not just the first.  Where two rules set the same option, the one higher in the list wins; drag rules to reorder them.
 - Options written in an event always win over rules, option by option: an event with `color: red` stays red, but still gets its `order` from a rule.
-- Options are merged as a [JSON Merge Patch](https://datatracker.ietf.org/doc/html/rfc7386), so a list (like `tag` or `classNames`) set by a rule replaces the event's list rather than adding to it, which means a rule can't add a tag.
+- Options are merged as a [JSON Merge Patch](https://datatracker.ietf.org/doc/html/rfc7386).  Since the event's own options win, a list (like `tag` or `classNames`) set by a rule only applies to events that don't set that list themselves; a rule can't add to an event's list, so it can't add a tag.
+- A rule's options mean what they mean in an event: `color` sets the background and border colors, and `hidden: no` is the same as `hidden: false`.  A rule can't set `title`, `start`, `end` or the time zones, since those are read before any rule applies, and a rule's `allDay` doesn't change an event whose times are dates (those are always all-day unless the event says otherwise).
+- Setting an option to `null` (`color: ~`) removes it, as long as the event itself doesn't set it, so a rule can undo a lower rule's option.
 - An itinerary's `filter`s see events after rules have applied, so you can filter on a color or order a rule set.
 
 To see a calendar without rules, set `rules: false` on that itinerary.

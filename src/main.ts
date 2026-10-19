@@ -1,4 +1,4 @@
-import { MarkdownPostProcessorContext, Plugin, TFile } from "obsidian";
+import { MarkdownPostProcessorContext, Notice, Plugin, TFile } from "obsidian";
 
 import { getEventInformation, parseEventSpec } from "./extractor";
 import {
@@ -20,11 +20,6 @@ export default class Itinerary extends Plugin implements RuleSettingsHost {
   rules: EventRule[] = [];
 
   async onload(): Promise<void> {
-    const data: unknown = await this.loadData();
-    this.rules = normalizeRules(isRecord(data) ? data.rules : undefined);
-    this.ruleBook.setRules(this.rules);
-    this.addSettingTab(new ItinerarySettingTab(this.app, this));
-
     // Keep rendered itineraries current as the notes they draw from change.
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
@@ -67,6 +62,17 @@ export default class Itinerary extends Plugin implements RuleSettingsHost {
       "itinerary-event",
       (source, el, ctx) => this.renderEvent(source, el, ctx)
     );
+
+    // Loaded last, so blocks render even if the settings can't be read;
+    // everything drawn so far redraws once the rules arrive.
+    try {
+      const data: unknown = await this.loadData();
+      this.rules = normalizeRules(isRecord(data) ? data.rules : undefined);
+      this.ruleBook.setRules(this.rules);
+    } catch (e) {
+      new Notice(`Itinerary couldn't load its event rules: ${errorMessage(e)}`);
+    }
+    this.addSettingTab(new ItinerarySettingTab(this.app, this));
   }
 
   async saveRules(): Promise<void> {

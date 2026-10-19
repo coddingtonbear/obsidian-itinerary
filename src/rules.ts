@@ -1,5 +1,6 @@
 import { parseYaml, stringifyYaml } from "obsidian";
 
+import { readBoolean, readNumber, readString } from "./extractor";
 import { EventFilter, compileFilter } from "./filter";
 import { EventSpec } from "./types";
 import { errorMessage, isRecord } from "./util";
@@ -17,8 +18,12 @@ export interface EventRule {
 
 export interface CompiledRule {
   rule: EventRule;
-  /** Null when `when` doesn't compile; the rule then matches nothing. */
+  /** Null when `when` doesn't compile or `set` is invalid; the rule then
+   * matches nothing. */
   filter: EventFilter | null;
+  /** `set`, read as an event's options would be, with `color` spread to
+   * the background and border colors it implies. */
+  patch: Record<string, unknown>;
   error?: string;
 }
 
@@ -79,18 +84,48 @@ export function parseRulePatch(text: string): Record<string, unknown> {
   } catch (e) {
     throw new Error(`Could not parse YAML: ${errorMessage(e)}`);
   }
-  const patch = parsed ?? {};
+  return readRulePatch(parsed ?? {});
+}
+
+/** Options a rule can't set: an event's times are interpreted (and its
+ * title defaulted) while the event is read, before any rule applies, so a
+ * rule's value would never take effect. */
+const UnsettableOptions = [
+  "title",
+  "start",
+  "end",
+  "timeZone",
+  "startTimeZone",
+  "endTimeZone",
+];
+
+/** Checks a rule's `set` patch and reads its values the way the same
+ * options are read from an event (`hidden: "no"` is false, `order: "2"` is
+ * 2), so a rule means what the option means when written on an event. A
+ * `null` is kept: it removes the option. Throws if the patch is invalid. */
+export function readRulePatch(patch: unknown): Record<string, unknown> {
   if (!isRecord(patch)) {
     throw new Error("Expected a set of `key: value` event options.");
   }
-  if (
-    patch.order !== undefined &&
-    patch.order !== null &&
-    (typeof patch.order !== "number" || !Number.isFinite(patch.order))
-  ) {
-    throw new Error('"order" must be a number.');
+  for (const field of UnsettableOptions) {
+    if (field in patch) {
+      throw new Error(`"${field}" can't be set by a rule.`);
+    }
   }
-  return patch;
+  const result: Record<string, unknown> = { ...patch };
+  const readers: [string[], (spec: Record<string, unknown>, field: string) => unknown][] = [
+    [["hidden", "allDay"], readBoolean],
+    [["order"], readNumber],
+    [["color", "backgroundColor", "borderColor", "textColor"], readString],
+  ];
+  for (const [fields, read] of readers) {
+    for (const field of fields) {
+      if (patch[field] !== undefined && patch[field] !== null) {
+        result[field] = read(patch, field);
+      }
+    }
+  }
+  return result;
 }
 
 /** Reads rules from saved settings, dropping any that aren't well formed
@@ -162,9 +197,16 @@ function parseRuleKey(
 export function compileRules(rules: readonly EventRule[]): CompiledRule[] {
   return rules.map((rule) => {
     const error = checkWhen(rule.when);
-    return error === null
-      ? { rule, filter: compileFilter(rule.when) }
-      : { rule, filter: null, error };
+    if (error !== null) {
+      return { rule, filter: null, patch: {}, error };
+    }
+    try {
+      // Saved settings may predate a check, or have been edited by hand.
+      const patch = withColorFallbacks(readRulePatch(rule.set));
+      return { rule, filter: compileFilter(rule.when), patch };
+    } catch (e) {
+      return { rule, filter: null, patch: {}, error: errorMessage(e) };
+    }
   });
 }
 
@@ -199,9 +241,9 @@ export function applyRules(
   event: EventSpec,
   rules: readonly CompiledRule[]
 ): RuledEvent {
-  const matched: { rule: EventRule; index: number }[] = [];
+  const matched: { rule: EventRule; patch: Record<string, unknown>; index: number }[] = [];
   const errors: RuledEvent["errors"] = [];
-  rules.forEach(({ rule, filter }, index) => {
+  rules.forEach(({ rule, filter, patch }, index) => {
     if (filter === null) {
       // Reported once, by whatever shows the rules, not for every event.
       return;
@@ -210,30 +252,33 @@ export function applyRules(
     if (result.error !== undefined) {
       errors.push({ name: ruleLabel(rule, index), error: result.error });
     } else if (result.matched) {
-      matched.push({ rule, index });
+      matched.push({ rule, patch, index });
     }
   });
   if (matched.length === 0) {
     return { event, matches: [], errors };
   }
 
-  // Lowest priority first, so higher rules' fields land on top.
+  // Lowest priority first, so higher rules' fields land on top. Each
+  // rule's `color` was already spread to its background and border, so a
+  // higher rule's `color` beats a lower rule's `backgroundColor`.
   let options: unknown = {};
-  for (const { rule } of [...matched].reverse()) {
-    options = mergePatch(options, rule.set);
+  for (const { patch } of [...matched].reverse()) {
+    options = mergePatch(options, patch);
   }
-  const fromRules = withColorFallbacks(isRecord(options) ? options : {});
-  const merged = mergePatch(fromRules, event) as EventSpec;
+  const merged = mergePatch(options, event) as EventSpec;
 
   const decided = new Set(Object.keys(event));
   const matches = matched.map(({ rule, index }) => {
-    const fields = Object.keys(rule.set).filter(
-      (field) => rule.set[field] !== null && !decided.has(field)
-    );
+    const fields = Object.keys(rule.set).filter((field) => !decided.has(field));
     for (const field of fields) {
       decided.add(field);
     }
-    return { name: ruleLabel(rule, index), fields };
+    // A `null` decides the field (it removes it) but sets nothing.
+    return {
+      name: ruleLabel(rule, index),
+      fields: fields.filter((field) => rule.set[field] !== null),
+    };
   });
   return { event: merged, matches, errors };
 }

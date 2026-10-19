@@ -4,6 +4,7 @@ import {
   PluginSettingTab,
   SettingDefinitionItem,
   SettingDefinitionPage,
+  debounce,
 } from "obsidian";
 
 import {
@@ -67,11 +68,22 @@ export class ItinerarySettingTab extends PluginSettingTab {
     return readRuleField(this.host.rules, key);
   }
 
-  async setControlValue(key: string, value: unknown): Promise<void> {
+  setControlValue(key: string, value: unknown): void {
     if (typeof value === "string" && writeRuleField(this.host.rules, key, value)) {
-      await this.save();
+      // Not update(): that would re-render the field being typed in, and
+      // rewrite "Set" from the saved options mid-edit. The list's names and
+      // warnings catch up the next time it's shown.
+      this.refreshDomState();
+      this.saveSoon();
     }
   }
+
+  /** Typing in a rule re-renders every open itinerary; wait for a pause. */
+  private readonly saveSoon = debounce(
+    () => void this.host.saveRules(),
+    500,
+    true
+  );
 
   private rulePage(rule: EventRule, index: number): SettingDefinitionPage {
     return {
@@ -121,8 +133,16 @@ export class ItinerarySettingTab extends PluginSettingTab {
     };
   }
 
-  /** Saves and redraws, so names and warnings in the list stay current. */
+  hide(): void {
+    // Don't lose an edit made just before the settings were closed.
+    this.saveSoon.run();
+    super.hide();
+  }
+
+  /** Saves and redraws the list after a rule is added, moved or removed. */
   private async save(): Promise<void> {
+    // Any edit still waiting to be saved is in `rules` already.
+    this.saveSoon.cancel();
     await this.host.saveRules();
     this.update();
   }

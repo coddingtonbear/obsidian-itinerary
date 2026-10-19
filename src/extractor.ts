@@ -41,7 +41,7 @@ function readTime(
   return readString(spec, field);
 }
 
-function readString(
+export function readString(
   spec: Record<string, unknown>,
   field: string
 ): string | undefined {
@@ -58,7 +58,7 @@ function readString(
   throw new Error(`Event field "${field}" must be text.`);
 }
 
-function readBoolean(
+export function readBoolean(
   spec: Record<string, unknown>,
   field: string
 ): boolean | undefined {
@@ -73,7 +73,7 @@ function readBoolean(
   return result;
 }
 
-function readNumber(
+export function readNumber(
   spec: Record<string, unknown>,
   field: string
 ): number | undefined {
