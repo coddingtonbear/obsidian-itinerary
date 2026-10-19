@@ -116,6 +116,24 @@ And as a reward for your effort, you can then render calendars for your various 
 
 ![](http://coddingtonbear-public.s3.amazonaws.com/github/obsidian-itinerary/overview.png)
 
+### Inserting events with a form
+
+If you'd rather not remember which fields an event takes, run **Itinerary: Insert event** from the command palette (or give it a hotkey under Settings → Hotkeys).  It opens a form asking for the event's title, start and end, whether it's all-day, the time zones its start and end are in, tags and color, and writes a finished `itinerary-event` block at your cursor.
+
+- Turning on **All day** switches the start and end to dates and hides the time zones, which don't apply to whole days.
+- For an all-day event, the form asks for the **last day** the event covers and writes the day after as its `end`, since all-day `end` dates are exclusive (see "Itinerary Event Options" below).
+- Both time zones start out as your computer's own, and the end's zone follows the start's until you change it, so only an event that ends somewhere else (a flight, say) needs both set.  When they're the same the form writes one `timeZone`; when they differ, `startTimeZone` and `endTimeZone` (see "Timezones" below).  If you're planning from home for somewhere else, set the start's zone to the destination's.  Clear a zone to leave it out, so the time is read in whatever zone the event is displayed in.
+- The time zone fields suggest zone names as you type (`new york` finds `America/New_York`).
+- The end can't be before the start, comparing the two in their own zones: a flight that lands at an earlier clock time than it took off is fine.
+- The tags field suggests tags already used by events in the same note.
+
+To change an event later, click the pencil button on its summary in your note.  The same form opens, filled in with the event's values, and **Save** rewrites the block where it is.
+
+- Fields the form doesn't show (`url`, `display`, `backgroundColor`, and any other event option) are kept as they were, after the form's own.  Comments in the block aren't kept.
+- A time written with an offset or zone (`2021-11-01T12:00Z`, `…+05:30`, `…[Europe/Paris]`) is shown as the same moment on the clock of the event's time zone, or of the zone it was written in if the event has none; saving writes it that way.
+- A tag containing a comma can't be typed in the tags field, so it isn't shown there, but it is kept.
+- If the block changes in the note while the form is open, saving leaves it alone and says so.
+
 
 ## Options
 

@@ -30,7 +30,7 @@ export function getEventInformation(fileData: string): EventSpec[] {
 
 /** Reads `start` or `end`: text, or a number of milliseconds since 1970,
  * which FullCalendar accepted in version 1. */
-function readTime(
+export function readTime(
   spec: Record<string, unknown>,
   field: string
 ): string | undefined {
@@ -89,7 +89,7 @@ export function readNumber(
   return result;
 }
 
-function readTags(
+export function readTags(
   spec: Record<string, unknown>
 ): string | string[] | undefined {
   const value = spec.tag;
@@ -207,7 +207,7 @@ function toCalendarTime(field: string, time: string): string {
 /** The date an all-day event's time was written on. FullCalendar would
  * convert a time with an offset into the calendar's zone before taking its
  * date, which can move it a day; an all-day event means the date written. */
-function toCalendarDate(field: string, time: string): string {
+export function toCalendarDate(field: string, time: string): string {
   if (isDateOnly(time)) {
     // Written in full, so a compact `20211101` compares as text in date
     // order with the dates filters are written with. An impossible date
@@ -270,7 +270,9 @@ function applyZone(
 
 /** A zone on a date without a time means nothing (the event is all-day),
  * and would otherwise make the date read as a timed instant. */
-function withoutDateAnnotation(time: string | undefined): string | undefined {
+export function withoutDateAnnotation(
+  time: string | undefined
+): string | undefined {
   return time?.trim().replace(AnnotatedDatePattern, "$1");
 }
 

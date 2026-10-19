@@ -8,9 +8,13 @@ export function parseYaml(text: string): any {
   return parse(text);
 }
 
-// Mirrors the real declaration, which takes `any`.
-export function stringifyYaml(obj: any): string {
-  return stringify(obj);
+export function stringifyYaml(value: unknown): string {
+  return stringify(value);
+}
+
+// Marks the element with the icon's name, so tests can see which was set.
+export function setIcon(el: HTMLElement, icon: string): void {
+  el.dataset.icon = icon;
 }
 
 export class Component {
