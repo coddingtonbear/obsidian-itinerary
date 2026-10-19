@@ -1,11 +1,20 @@
 // A minimal stand-in for the parts of the `obsidian` package this plugin
 // uses. The real package ships only type declarations; its runtime is
 // provided by the Obsidian app, so unit tests need this replacement.
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 
 // Mirrors the real declaration, which returns `any`.
 export function parseYaml(text: string): any {
   return parse(text);
+}
+
+export function stringifyYaml(value: unknown): string {
+  return stringify(value);
+}
+
+// Marks the element with the icon's name, so tests can see which was set.
+export function setIcon(el: HTMLElement, icon: string): void {
+  el.dataset.icon = icon;
 }
 
 export class Component {

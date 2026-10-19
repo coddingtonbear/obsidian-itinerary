@@ -30,7 +30,7 @@ export function getEventInformation(fileData: string): EventSpec[] {
 
 /** Reads `start` or `end`: text, or a number of milliseconds since 1970,
  * which FullCalendar accepted in version 1. */
-function readTime(
+export function readTime(
   spec: Record<string, unknown>,
   field: string
 ): string | undefined {
@@ -41,7 +41,7 @@ function readTime(
   return readString(spec, field);
 }
 
-function readString(
+export function readString(
   spec: Record<string, unknown>,
   field: string
 ): string | undefined {
@@ -58,7 +58,7 @@ function readString(
   throw new Error(`Event field "${field}" must be text.`);
 }
 
-function readBoolean(
+export function readBoolean(
   spec: Record<string, unknown>,
   field: string
 ): boolean | undefined {
@@ -73,7 +73,23 @@ function readBoolean(
   return result;
 }
 
-function readTags(
+export function readNumber(
+  spec: Record<string, unknown>,
+  field: string
+): number | undefined {
+  const value = spec[field];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const result =
+    typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  if (typeof result !== "number" || !Number.isFinite(result)) {
+    throw new Error(`Event field "${field}" must be a number.`);
+  }
+  return result;
+}
+
+export function readTags(
   spec: Record<string, unknown>
 ): string | string[] | undefined {
   const value = spec.tag;
@@ -191,7 +207,7 @@ function toCalendarTime(field: string, time: string): string {
 /** The date an all-day event's time was written on. FullCalendar would
  * convert a time with an offset into the calendar's zone before taking its
  * date, which can move it a day; an all-day event means the date written. */
-function toCalendarDate(field: string, time: string): string {
+export function toCalendarDate(field: string, time: string): string {
   if (isDateOnly(time)) {
     // Written in full, so a compact `20211101` compares as text in date
     // order with the dates filters are written with. An impossible date
@@ -254,17 +270,28 @@ function applyZone(
 
 /** A zone on a date without a time means nothing (the event is all-day),
  * and would otherwise make the date read as a timed instant. */
-function withoutDateAnnotation(time: string | undefined): string | undefined {
+export function withoutDateAnnotation(
+  time: string | undefined
+): string | undefined {
   return time?.trim().replace(AnnotatedDatePattern, "$1");
 }
 
 export function parseEventSpec(eventSpec: string): EventSpec {
+  return toEventSpec(readEventFields(eventSpec));
+}
+
+/** An event block's fields, as written. */
+export function readEventFields(eventSpec: string): Record<string, unknown> {
   const parsed: unknown = parseYaml(eventSpec);
   const spec = parsed ?? {};
   if (!isRecord(spec)) {
     throw new Error("Event must be a set of `key: value` fields.");
   }
+  return spec;
+}
 
+/** The event an event block's fields describe. */
+export function toEventSpec(spec: Record<string, unknown>): EventSpec {
   const timeZone = readString(spec, "timeZone");
   const startTimeZone = readString(spec, "startTimeZone");
   const endTimeZone = readString(spec, "endTimeZone");
@@ -298,6 +325,7 @@ export function parseEventSpec(eventSpec: string): EventSpec {
     endTimeZone,
     tag: readTags(spec),
     hidden: readBoolean(spec, "hidden"),
+    order: readNumber(spec, "order"),
     title: readString(spec, "title") || DefaultTitle,
     // Colors are left unset unless given, so the itinerary's eventColor
     // and the theme's accent apply to the rest.

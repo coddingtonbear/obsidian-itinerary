@@ -1,4 +1,5 @@
 import { describe, test, expect } from "vitest";
+import { DefaultEventOrder } from "./order";
 import { getCalendarOptions, normalizeSources, parseItinerarySpec } from "./spec";
 
 describe("normalizeSources", () => {
@@ -38,6 +39,7 @@ describe("parseItinerarySpec", () => {
       source: [],
       filter: [],
       debug: false,
+      rules: true,
     });
   });
 
@@ -47,6 +49,7 @@ describe("parseItinerarySpec", () => {
         'source: "[[Trip]]"',
         "filter: allDay",
         "debug: true",
+        "rules: false",
         "initialDate: 2021-11-01",
         "initialView: listDay",
       ].join("\n")
@@ -55,6 +58,7 @@ describe("parseItinerarySpec", () => {
       source: ["[[Trip]]"],
       filter: ["allDay"],
       debug: true,
+      rules: false,
       initialDate: "2021-11-01",
       initialView: "listDay",
     });
@@ -88,6 +92,12 @@ describe("parseItinerarySpec", () => {
   test("rejects a non-boolean debug", () => {
     expect(() => parseItinerarySpec("debug: often")).toThrow(/debug/);
   });
+
+  test("rejects a non-boolean rules", () => {
+    expect(() => parseItinerarySpec("rules: some")).toThrow(
+      /"rules" must be true or false/
+    );
+  });
 });
 
 describe("getCalendarOptions", () => {
@@ -96,11 +106,28 @@ describe("getCalendarOptions", () => {
       source: ["[[Trip]]"],
       filter: ["allDay"],
       debug: true,
+      rules: false,
       initialView: "listDay",
     });
+    expect(options).not.toHaveProperty("rules");
     expect(options).not.toHaveProperty("source");
     expect(options).not.toHaveProperty("filter");
     expect(options).not.toHaveProperty("debug");
     expect(options.initialView).toBe("listDay");
+  });
+
+  test("orders events by order, strictly, by default", () => {
+    const { options } = getCalendarOptions({});
+    expect(options.eventOrder).toBe(DefaultEventOrder);
+    expect(options.eventOrderStrict).toBe(true);
+  });
+
+  test("keeps an itinerary's own eventOrder and eventOrderStrict", () => {
+    const { options } = getCalendarOptions({
+      eventOrder: "start,color",
+      eventOrderStrict: false,
+    });
+    expect(options.eventOrder).toBe("start,color");
+    expect(options.eventOrderStrict).toBe(false);
   });
 });

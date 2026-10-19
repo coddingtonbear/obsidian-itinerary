@@ -27,6 +27,18 @@
   padding: var(--size-4-1) 0;
 }
 
+.itinerary-event-form-problems:not(:empty) {
+  color: var(--text-error);
+  font-size: var(--font-ui-small);
+  padding-top: var(--size-4-2);
+}
+
+.itinerary-warnings {
+  color: var(--text-warning);
+  font-size: var(--font-ui-small);
+  margin-bottom: var(--size-4-1);
+}
+
 .itinerary-event {
   display: flex;
   flex-wrap: wrap;
@@ -52,16 +64,29 @@
 .itinerary-event .date {
   font-style: italic;
 }
+.itinerary-event .itinerary-event-end {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1) var(--size-4-2);
+  margin-left: auto;
+}
 .itinerary-event .tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-4-1);
-  margin-left: auto;
 }
 .itinerary-event .tag {
   border-radius: var(--radius-s);
   border: 1px solid var(--background-modifier-border);
   padding: 2px 5px;
+}
+/* In live preview, Obsidian puts its own "Edit this block" button in the
+ * block's top right corner (.embed-actions); keep the edit button, and
+ * anything else, out from under it. */
+.markdown-source-view.mod-cm6 .itinerary-event {
+  padding-inline-end: calc(
+    var(--icon-size) + 2 * var(--size-2-3) + var(--size-2-2) + var(--size-4-1)
+  );
 }
 
 /* The classic theme fixes a 16px font; follow the note instead. */
