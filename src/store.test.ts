@@ -14,7 +14,7 @@ function event(title: string): EventSpec {
 function subscriber(sourcePaths: string[]): EventSubscriber & {
   onEventsChanged: Mock;
 } {
-  return { sourcePaths, onEventsChanged: vi.fn() };
+  return { sourcePaths, onEventsChanged: vi.fn(), renameSource: vi.fn() };
 }
 
 describe("EventStore", () => {
@@ -85,6 +85,55 @@ describe("EventStore", () => {
     expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
     await store.getEvents(["a.md"]);
     expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  test("moves a renamed document's events and tells its dependents", async () => {
+    const renamed: [string, string][] = [];
+    let paths = ["a.md"];
+    const onA = {
+      get sourcePaths() {
+        return paths;
+      },
+      onEventsChanged: vi.fn(),
+      renameSource(oldPath: string, newPath: string) {
+        renamed.push([oldPath, newPath]);
+        paths = [newPath];
+      },
+    };
+    store.subscribe(onA);
+    await store.getEvents(["a.md"]);
+
+    store.rename("a.md", "trips/a.md");
+
+    expect(renamed).toEqual([["a.md", "trips/a.md"]]);
+    expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
+    const events = await store.getEvents(["trips/a.md"]);
+    expect(events.map((e) => e.title)).toEqual(["A"]);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  test("drops a cached document nobody uses any more instead of re-reading it", async () => {
+    await store.getEvents(["a.md"]);
+    await store.refresh("a.md");
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps a newer read when an older one fails", async () => {
+    const reads: { resolve: (e: EventSpec[]) => void; reject: (e: Error) => void }[] = [];
+    store = new EventStore(
+      () => new Promise<EventSpec[]>((resolve, reject) => reads.push({ resolve, reject }))
+    );
+    store.subscribe(subscriber(["a.md"]));
+    const first = store.getEvents(["a.md"]);
+    const refreshing = store.refresh("a.md");
+    reads[1].resolve([event("Newer")]);
+    await refreshing;
+    reads[0].reject(new Error("stale"));
+    await expect(first).rejects.toThrow("stale");
+
+    const events = await store.getEvents(["a.md"]);
+    expect(events.map((e) => e.title)).toEqual(["Newer"]);
+    expect(reads).toHaveLength(2);
   });
 
   test("retries a read that failed", async () => {

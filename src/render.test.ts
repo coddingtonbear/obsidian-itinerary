@@ -257,6 +257,21 @@ describe("ItineraryRenderer", () => {
     renderer.unload();
   });
 
+  test("follows a source note that is renamed", async () => {
+    const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
+    renderer.load();
+    await settle();
+
+    contents["trips/trip.md"] = contents["trip.md"];
+    delete contents["trip.md"];
+    store.rename("trip.md", "trips/trip.md");
+    await settle();
+
+    expect(renderer.sourcePaths).toEqual(["trips/trip.md"]);
+    expect(shownTitles()).toEqual(["Hotel", "Parade"]);
+    renderer.unload();
+  });
+
   test("stops listening and tears down when unloaded", async () => {
     const renderer = new ItineraryRenderer(el, listSpec, ["trip.md"], store);
     renderer.load();

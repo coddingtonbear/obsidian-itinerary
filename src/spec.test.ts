@@ -22,6 +22,10 @@ describe("normalizeSources", () => {
     expect(normalizeSources([["Trip"]])).toEqual(["[[Trip]]"]);
   });
 
+  test("reads a block list of unquoted links", () => {
+    expect(normalizeSources([[["A"]], [["B"]]])).toEqual(["[[A]]", "[[B]]"]);
+  });
+
   test("rejects other shapes", () => {
     expect(() => normalizeSources({ a: 1 })).toThrow(/source/);
     expect(() => normalizeSources([5])).toThrow(/source/);
@@ -74,6 +78,11 @@ describe("parseItinerarySpec", () => {
 
   test("rejects a non-text filter", () => {
     expect(() => parseItinerarySpec("filter:\n  a: 1")).toThrow(/filter/);
+  });
+
+  test("accepts quoted true and yes for debug", () => {
+    expect(parseItinerarySpec('debug: "yes"').debug).toBe(true);
+    expect(parseItinerarySpec('debug: "true"').debug).toBe(true);
   });
 
   test("rejects a non-boolean debug", () => {

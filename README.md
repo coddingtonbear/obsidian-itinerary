@@ -156,7 +156,7 @@ You can specify the following options for events:
 
 Additionally, you can provide any options described here:  https://fullcalendar.io/docs/event-parsing; particularly useful properties include:
 
-- `color`: For marking your events in a particular color.  You can also set `backgroundColor`, `borderColor` and `textColor` separately; the calendar draws events in `backgroundColor` (falling back to `borderColor`) with `textColor` text, and the event summaries in your notes use all three.
+- `color`: For marking your events in a particular color.  You can also set `backgroundColor`, `borderColor` and `textColor` separately; the calendar draws events in `backgroundColor` with `textColor` text, and the event summaries in your notes use all three.
 - `allDay`: For marking your event as an "all-day" event.  An event whose `start` and `end` are dates without times is all-day even if you leave this out.
 
 ### Expressions

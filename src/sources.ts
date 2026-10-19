@@ -32,5 +32,7 @@ export function resolveSourcePath(
   if (lookup.fileExists(`${trimmed}.md`)) {
     return `${trimmed}.md`;
   }
-  throw new Error(`Could not find a note at "${source}".`);
+  // As in version 1, a path to a note that doesn't exist yet is kept: its
+  // events appear once the note is created.
+  return trimmed;
 }

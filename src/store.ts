@@ -7,6 +7,8 @@ export type EventReader = (path: DocumentPath) => Promise<EventSpec[]>;
 export interface EventSubscriber {
   readonly sourcePaths: readonly DocumentPath[];
   onEventsChanged(): void;
+  /** A document this subscriber displays was renamed or moved. */
+  renameSource(oldPath: DocumentPath, newPath: DocumentPath): void;
 }
 
 /** Caches the events found in each document and tells subscribers when the
@@ -75,10 +77,11 @@ export class EventStore {
   /** Re-reads a document that has changed, if anything depends on it. */
   async refresh(path: DocumentPath): Promise<void> {
     const dependents = this.dependentsOf(path);
-    if (!this.events.has(path) && dependents.length === 0) {
+    this.events.delete(path);
+    if (dependents.length === 0) {
+      // Nothing shows it any more; it is read again if something does.
       return;
     }
-    this.events.delete(path);
     try {
       await this.load(path);
     } finally {
@@ -90,7 +93,21 @@ export class EventStore {
     }
   }
 
-  /** Drops a document that was deleted or renamed. */
+  /** Follows a document that was renamed or moved: its cached events move
+   * with it, and subscribers displaying it switch to the new path. */
+  rename(oldPath: DocumentPath, newPath: DocumentPath): void {
+    const events = this.events.get(oldPath);
+    this.events.delete(oldPath);
+    if (events) {
+      this.events.set(newPath, events);
+    }
+    for (const subscriber of this.dependentsOf(oldPath)) {
+      subscriber.renameSource(oldPath, newPath);
+      subscriber.onEventsChanged();
+    }
+  }
+
+  /** Drops a document that was deleted. */
   forget(path: DocumentPath): void {
     if (!this.events.delete(path)) {
       return;
@@ -109,11 +126,17 @@ export class EventStore {
   private load(path: DocumentPath): Promise<EventSpec[]> {
     let events = this.events.get(path);
     if (!events) {
-      events = this.read(path).catch((error: unknown) => {
-        // Don't cache a failure; the next request should try again.
-        this.events.delete(path);
-        throw error;
-      });
+      const loading: Promise<EventSpec[]> = this.read(path).catch(
+        (error: unknown) => {
+          // Don't cache a failure; the next request should try again. A
+          // refresh may have replaced this read with a newer one already.
+          if (this.events.get(path) === loading) {
+            this.events.delete(path);
+          }
+          throw error;
+        }
+      );
+      events = loading;
       this.events.set(path, events);
     }
     return events;

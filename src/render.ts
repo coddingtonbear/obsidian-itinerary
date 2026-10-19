@@ -29,7 +29,7 @@ export class ItineraryRenderer
   constructor(
     containerEl: HTMLElement,
     private readonly spec: ItinerarySpec,
-    readonly sourcePaths: readonly DocumentPath[],
+    private paths: readonly DocumentPath[],
     private readonly store: EventStore
   ) {
     super(containerEl);
@@ -76,6 +76,14 @@ export class ItineraryRenderer
   onunload(): void {
     this.calendar?.destroy();
     this.calendar = null;
+  }
+
+  get sourcePaths(): readonly DocumentPath[] {
+    return this.paths;
+  }
+
+  renameSource(oldPath: DocumentPath, newPath: DocumentPath): void {
+    this.paths = this.paths.map((path) => (path === oldPath ? newPath : path));
   }
 
   onEventsChanged(): void {

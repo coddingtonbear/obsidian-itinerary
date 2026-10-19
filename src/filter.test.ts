@@ -87,6 +87,12 @@ describe("compileFilter", () => {
     expect(filter(parseEventSpec('start: "2021-11-01T00:30+01:00"'))).toBe(true);
   });
 
+  test("treats an event whose times are all dates as all-day", () => {
+    expect(compileFilter("allDay")(parseEventSpec("start: 2021-11-01"))).toBe(
+      true
+    );
+  });
+
   test("still compares numbers", () => {
     expect(compileFilter("priority > 2")(event({ priority: 3 }))).toBe(true);
     expect(compileFilter("priority > 2")(event({ priority: 1 }))).toBe(false);

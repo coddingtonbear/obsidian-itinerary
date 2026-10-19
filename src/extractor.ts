@@ -2,7 +2,7 @@ import { parseYaml } from "obsidian";
 import { Temporal } from "temporal-polyfill";
 
 import { EventSpec } from "./types";
-import { errorMessage, isRecord } from "./util";
+import { errorMessage, isRecord, readBooleanValue } from "./util";
 
 const DefaultTitle = "Untitled event";
 
@@ -53,19 +53,11 @@ function readBoolean(
   if (value === undefined || value === null) {
     return undefined;
   }
-  if (typeof value === "boolean") {
-    return value;
+  const result = readBooleanValue(value);
+  if (result === null) {
+    throw new Error(`Event field "${field}" must be true or false.`);
   }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "true" || normalized === "yes") {
-      return true;
-    }
-    if (normalized === "false" || normalized === "no") {
-      return false;
-    }
-  }
-  throw new Error(`Event field "${field}" must be true or false.`);
+  return result;
 }
 
 function readTags(
@@ -192,18 +184,14 @@ function toCalendarDate(field: string, time: string): string {
 /** Interprets a wall-clock time in the given zone as an absolute ISO time.
  * A time that already names its offset or zone is the same instant, shown
  * in that zone. Without a zone, the time is only rewritten if FullCalendar
- * couldn't read it as written (see toCalendarTime).
- *
- * Dates without a time are left alone when `keepDates` is set (the event's
- * times are all dates): FullCalendar reads such events as all-day, and
- * giving them a zone would make them events at midnight. */
+ * couldn't read it as written (see toCalendarTime). Used for timed events
+ * only: a date without a time becomes midnight in the zone. */
 function applyZone(
   field: string,
   time: string | undefined,
-  zone: string | undefined,
-  keepDates: boolean
+  zone: string | undefined
 ): string | undefined {
-  if (time === undefined || (keepDates && isDateOnly(time))) {
+  if (time === undefined) {
     return time;
   }
   if (zone === undefined) {
@@ -240,23 +228,25 @@ export function parseEventSpec(eventSpec: string): EventSpec {
     throw new Error("Event must be a set of `key: value` fields.");
   }
 
-  const allDay = readBoolean(spec, "allDay");
   const timeZone = readString(spec, "timeZone");
   const startTimeZone = readString(spec, "startTimeZone");
   const endTimeZone = readString(spec, "endTimeZone");
   let start = withoutDateAnnotation(readString(spec, "start"));
   let end = withoutDateAnnotation(readString(spec, "end"));
+  // An event whose times are all dates is all-day unless it says
+  // otherwise, as FullCalendar would infer; recording that here lets
+  // filters on `allDay` agree with the calendar. `allDay: false` asks for
+  // such dates as midnight in the event's zone.
+  const allDay =
+    readBoolean(spec, "allDay") ?? (hasOnlyDates(start, end) || undefined);
 
   // Apply timezones to start/end times if provided
   if (allDay) {
     start = start === undefined ? start : toCalendarDate("start", start);
     end = end === undefined ? end : toCalendarDate("end", end);
   } else {
-    // Dates are left as dates only when the event is all-day by
-    // inference; `allDay: false` asks for them as midnight in the zone.
-    const datesOnly = allDay === undefined && hasOnlyDates(start, end);
-    start = applyZone("start", start, startTimeZone ?? timeZone, datesOnly);
-    end = applyZone("end", end, endTimeZone ?? timeZone, datesOnly);
+    start = applyZone("start", start, startTimeZone ?? timeZone);
+    end = applyZone("end", end, endTimeZone ?? timeZone);
   }
 
   const color = readString(spec, "color");

@@ -24,9 +24,17 @@ export default class Itinerary extends Plugin {
       this.app.vault.on("delete", (file) => this.store.forget(file.path))
     );
     this.registerEvent(
-      this.app.vault.on("rename", (_file, oldPath) =>
-        this.store.forget(oldPath)
+      this.app.vault.on("rename", (file, oldPath) =>
+        this.store.rename(oldPath, file.path)
       )
+    );
+    // A source given as a path may not exist until later.
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        if (file instanceof TFile) {
+          this.store.scheduleRefresh(file.path);
+        }
+      })
     );
 
     this.register(() => this.store.dispose());

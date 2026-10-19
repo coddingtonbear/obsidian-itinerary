@@ -3,7 +3,7 @@ import { parseYaml } from "obsidian";
 
 import { TranslatedOptions, translateLegacyOptions } from "./compat";
 import { ItinerarySpec } from "./types";
-import { errorMessage, isRecord } from "./util";
+import { errorMessage, isRecord, readBooleanValue } from "./util";
 
 /** Reads the `source` option into a list of source strings.
  *
@@ -19,12 +19,13 @@ export function normalizeSources(value: unknown): string[] {
     if (typeof item === "string") {
       return item;
     }
-    if (
-      Array.isArray(item) &&
-      item.length === 1 &&
-      typeof item[0] === "string"
-    ) {
-      return `[[${item[0]}]]`;
+    // `- [[My Note]]` in a block list nests one level deeper still.
+    let unwrapped: unknown = item;
+    while (Array.isArray(unwrapped) && unwrapped.length === 1) {
+      unwrapped = unwrapped[0];
+    }
+    if (unwrapped !== item && typeof unwrapped === "string") {
+      return `[[${unwrapped}]]`;
     }
     throw new Error(
       'Itinerary option "source" must be a note link (e.g. "[[My Note]]"), a path, or a list of them.'
@@ -63,7 +64,9 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
   }
 
   const { source, filter, debug, ...calendarOptions } = spec;
-  if (debug !== undefined && debug !== null && typeof debug !== "boolean") {
+  const debugFlag =
+    debug === undefined || debug === null ? false : readBooleanValue(debug);
+  if (debugFlag === null) {
     throw new Error('Itinerary option "debug" must be true or false.');
   }
 
@@ -73,7 +76,7 @@ export function parseItinerarySpec(text: string): ItinerarySpec {
     ...(calendarOptions as CalendarOptions),
     source: normalizeSources(source),
     filter: normalizeFilters(filter),
-    debug: debug ?? false,
+    debug: debugFlag,
   };
 }
 

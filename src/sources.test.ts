@@ -60,9 +60,11 @@ describe("resolveSourcePath", () => {
     expect(resolveSourcePath("Root", "index.md", vault)).toBe("Root.md");
   });
 
-  test("rejects a path with no file", () => {
-    expect(() => resolveSourcePath("nowhere.md", "index.md", vault)).toThrow(
-      /Could not find a note/
+  test("uses a path with no file yet as written", () => {
+    // As in version 1: the note may not have been created yet, and its
+    // events appear once it is.
+    expect(resolveSourcePath("nowhere.md", "index.md", vault)).toBe(
+      "nowhere.md"
     );
   });
 });

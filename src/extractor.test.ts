@@ -259,11 +259,19 @@ describe("parseEventSpec validation", () => {
   });
 
   test("leaves out options the block doesn't set", () => {
-    // FullCalendar reads a present-but-undefined `allDay` as false, which
-    // stops it inferring all-day events from date-only times.
-    const evt = parseEventSpec("start: 2021-10-31\nend: 2021-11-04");
+    // FullCalendar reads a present-but-undefined option as set: an
+    // `allDay: undefined` reads as false.
+    const evt = parseEventSpec("start: 2021-10-31T10:00");
     expect(Object.keys(evt)).not.toContain("allDay");
     expect(Object.values(evt)).not.toContain(undefined);
+  });
+
+  test("marks an event whose times are all dates as all-day", () => {
+    // So filters on `allDay` agree with how the calendar draws it.
+    expect(parseEventSpec("start: 2021-10-31\nend: 2021-11-04").allDay).toBe(
+      true
+    );
+    expect(parseEventSpec("start: 2021-10-31").allDay).toBe(true);
   });
 
   test("reads numeric titles and tags as text", () => {
