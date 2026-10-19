@@ -3,11 +3,14 @@ import { describe, test, expect } from "vitest";
 import {
   EventFormValues,
   completeTag,
+  defaultTimeZone,
   emptyEventForm,
   eventBlock,
+  isKnownTimeZone,
   padForInsertion,
   parseTagInput,
   serializeEventForm,
+  setStartTimeZone,
   suggestTags,
   suggestTimeZones,
   switchAllDay,
@@ -17,8 +20,12 @@ import {
 } from "./eventForm";
 import { getEventInformation, parseEventSpec } from "./extractor";
 
-function form(values: Partial<EventFormValues>): EventFormValues {
-  return { ...emptyEventForm(), ...values };
+/** A form with the given values; `timeZone` sets both ends' zones. */
+function form(
+  values: Partial<EventFormValues> & { timeZone?: string }
+): EventFormValues {
+  const { timeZone, ...rest } = values;
+  return { ...emptyEventForm(timeZone), ...rest };
 }
 
 describe("serializeEventForm", () => {
@@ -405,5 +412,171 @@ describe("suggestTimeZones", () => {
 
   test("limits how many are suggested", () => {
     expect(suggestTimeZones("", zones, 2)).toHaveLength(2);
+  });
+});
+
+describe("time zones for each end", () => {
+  const flight = {
+    title: "Flight",
+    start: "2021-11-04T10:00",
+    end: "2021-11-04T18:30",
+    startTimeZone: "America/Los_Angeles",
+    endTimeZone: "America/New_York",
+  };
+
+  test("writes a zone for each end when they differ", () => {
+    expect(serializeEventForm(form(flight))).toBe(
+      [
+        "title: Flight",
+        "start: 2021-11-04T10:00",
+        "end: 2021-11-04T18:30",
+        "startTimeZone: America/Los_Angeles",
+        "endTimeZone: America/New_York",
+      ].join("\n")
+    );
+  });
+
+  test("reads back with each end in its own zone", () => {
+    expect(parseEventSpec(serializeEventForm(form(flight)))).toMatchObject({
+      start: "2021-11-04T10:00:00-07:00",
+      end: "2021-11-04T18:30:00-04:00",
+      startTimeZone: "America/Los_Angeles",
+      endTimeZone: "America/New_York",
+    });
+  });
+
+  test("writes one timeZone when both ends share it, ignoring spaces", () => {
+    expect(
+      serializeEventForm(
+        form({
+          title: "A",
+          start: "2021-11-01T12:00",
+          startTimeZone: "Europe/Paris",
+          endTimeZone: " Europe/Paris ",
+        })
+      )
+    ).toBe("title: A\nstart: 2021-11-01T12:00\ntimeZone: Europe/Paris");
+  });
+
+  test("leaves out an end whose zone is empty", () => {
+    expect(
+      serializeEventForm(
+        form({ ...flight, startTimeZone: "", endTimeZone: "America/New_York" })
+      )
+    ).toBe(
+      [
+        "title: Flight",
+        "start: 2021-11-04T10:00",
+        "end: 2021-11-04T18:30",
+        "endTimeZone: America/New_York",
+      ].join("\n")
+    );
+  });
+
+  test("writes no zone for an all-day event", () => {
+    expect(
+      serializeEventForm(
+        form({ ...flight, allDay: true, start: "2021-11-04", end: "2021-11-04" })
+      )
+    ).toBe(
+      ["title: Flight", "allDay: true", "start: 2021-11-04", "end: 2021-11-05"].join(
+        "\n"
+      )
+    );
+  });
+
+  test("allows an end at an earlier clock time in a zone further west", () => {
+    // 16:00Z to 16:30Z.
+    expect(
+      validateEventForm(
+        form({
+          title: "A",
+          start: "2021-11-04T12:00",
+          end: "2021-11-04T11:30",
+          startTimeZone: "America/New_York",
+          endTimeZone: "America/Chicago",
+        })
+      )
+    ).toEqual([]);
+  });
+
+  test("rejects an end before the start once the zones are applied", () => {
+    // 19:00Z to 17:00Z, though the clock times look fine.
+    expect(
+      validateEventForm(
+        form({
+          title: "A",
+          start: "2021-11-04T12:00",
+          end: "2021-11-04T13:00",
+          startTimeZone: "America/Los_Angeles",
+          endTimeZone: "America/New_York",
+        })
+      )
+    ).toEqual(["The end is before the start."]);
+  });
+
+  test("names each unknown zone once", () => {
+    expect(
+      validateEventForm(
+        form({ title: "A", start: "2021-11-01T12:00", timeZone: "Mars/Olympus" })
+      )
+    ).toEqual(['"Mars/Olympus" isn\'t a time zone Obsidian knows.']);
+    expect(
+      validateEventForm(
+        form({
+          title: "A",
+          start: "2021-11-01T12:00",
+          end: "2021-11-01T11:00",
+          startTimeZone: "Europe/Paris",
+          endTimeZone: "Moon/Tranquility",
+        })
+      )
+    ).toEqual([
+      "The end is before the start.",
+      '"Moon/Tranquility" isn\'t a time zone Obsidian knows.',
+    ]);
+  });
+
+  describe("setStartTimeZone", () => {
+    test("moves the end's zone along while it matches", () => {
+      expect(
+        setStartTimeZone(form({ timeZone: "America/Chicago" }), "Europe/Paris")
+      ).toMatchObject({
+        startTimeZone: "Europe/Paris",
+        endTimeZone: "Europe/Paris",
+      });
+    });
+
+    test("leaves an end's zone that was set apart", () => {
+      expect(
+        setStartTimeZone(
+          form({
+            startTimeZone: "America/Los_Angeles",
+            endTimeZone: "America/New_York",
+          }),
+          "America/Denver"
+        )
+      ).toMatchObject({
+        startTimeZone: "America/Denver",
+        endTimeZone: "America/New_York",
+      });
+    });
+
+    test("keeps following as a zone is typed letter by letter", () => {
+      let values = form({});
+      for (const typed of ["E", "Eu", "Europe/Paris"]) {
+        values = setStartTimeZone(values, typed);
+      }
+      expect(values.endTimeZone).toBe("Europe/Paris");
+    });
+  });
+
+  test("starts both ends in the system's zone", () => {
+    const zone = defaultTimeZone();
+    expect(isKnownTimeZone(zone)).toBe(true);
+    expect(emptyEventForm(zone)).toMatchObject({
+      startTimeZone: zone,
+      endTimeZone: zone,
+    });
   });
 });

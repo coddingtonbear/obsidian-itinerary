@@ -118,11 +118,13 @@ And as a reward for your effort, you can then render calendars for your various 
 
 ### Inserting events with a form
 
-If you'd rather not remember which fields an event takes, run **Itinerary: Insert event** from the command palette (or give it a hotkey under Settings → Hotkeys).  It opens a form asking for the event's title, start and end, whether it's all-day, its time zone, tags and color, and writes a finished `itinerary-event` block at your cursor.
+If you'd rather not remember which fields an event takes, run **Itinerary: Insert event** from the command palette (or give it a hotkey under Settings → Hotkeys).  It opens a form asking for the event's title, start and end, whether it's all-day, the time zones its start and end are in, tags and color, and writes a finished `itinerary-event` block at your cursor.
 
-- Turning on **All day** switches the start and end to dates and hides the time zone, which doesn't apply to whole days.
+- Turning on **All day** switches the start and end to dates and hides the time zones, which don't apply to whole days.
 - For an all-day event, the form asks for the **last day** the event covers and writes the day after as its `end`, since all-day `end` dates are exclusive (see "Itinerary Event Options" below).
-- The time zone field suggests zone names as you type (`new york` finds `America/New_York`); leave it empty to use your own.
+- Both time zones start out as your computer's own, and the end's zone follows the start's until you change it, so only an event that ends somewhere else (a flight, say) needs both set.  When they're the same the form writes one `timeZone`; when they differ, `startTimeZone` and `endTimeZone` (see "Timezones" below).  Clear a zone to leave it out, so the event is read in the zone of whoever is looking at it.
+- The time zone fields suggest zone names as you type (`new york` finds `America/New_York`).
+- The end can't be before the start, comparing the two in their own zones: a flight that lands at an earlier clock time than it took off is fine.
 - The tags field suggests tags already used by events in the same note.
 
 

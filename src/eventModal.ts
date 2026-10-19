@@ -9,9 +9,11 @@ import {
 import {
   EventFormValues,
   completeTag,
+  defaultTimeZone,
   emptyEventForm,
   eventBlock,
   parseTagInput,
+  setStartTimeZone,
   suggestTags,
   suggestTimeZones,
   switchAllDay,
@@ -59,11 +61,13 @@ function timeZones(): string[] {
 /** The "Insert itinerary event" form. `onSubmit` receives the finished
  * `itinerary-event` block. */
 export class EventModal extends Modal {
-  private values: EventFormValues = emptyEventForm();
+  private values: EventFormValues = emptyEventForm(defaultTimeZone());
   private startInput!: TextComponent;
   private endInput!: TextComponent;
   private endSetting!: Setting;
-  private timeZoneSetting!: Setting;
+  private startTimeZoneSetting!: Setting;
+  private endTimeZoneSetting!: Setting;
+  private endTimeZoneInput!: TextComponent;
   private problemsEl!: HTMLElement;
 
   constructor(
@@ -103,19 +107,32 @@ export class EventModal extends Modal {
       text.onChange((value) => (this.values.end = value));
     });
 
-    this.timeZoneSetting = new Setting(contentEl)
-      .setName("Time zone")
+    this.startTimeZoneSetting = new Setting(contentEl)
+      .setName("Start time zone")
       .setDesc(
-        "The zone the times are in. Type a city to find it. Leave empty for your own."
+        "The zone the start is in. Type a city to find it. Leave empty for " +
+          "the zone of whoever reads the note."
       )
       .addText((text) => {
-        text.onChange((value) => (this.values.timeZone = value));
-        new ListSuggest(
-          this.app,
-          text,
-          (query) => suggestTimeZones(query, timeZones()),
-          (_, zone) => zone
-        );
+        text.setValue(this.values.startTimeZone);
+        text.onChange((value) => {
+          this.values = setStartTimeZone(this.values, value);
+          this.endTimeZoneInput.setValue(this.values.endTimeZone);
+        });
+        this.addTimeZoneSuggest(text);
+      });
+
+    this.endTimeZoneSetting = new Setting(contentEl)
+      .setName("End time zone")
+      .setDesc(
+        "Follows the start's zone; change it for an event that ends " +
+          "somewhere else, such as a flight."
+      )
+      .addText((text) => {
+        this.endTimeZoneInput = text;
+        text.setValue(this.values.endTimeZone);
+        text.onChange((value) => (this.values.endTimeZone = value));
+        this.addTimeZoneSuggest(text);
       });
 
     new Setting(contentEl)
@@ -196,7 +213,17 @@ export class EventModal extends Modal {
       this.endSetting.setName("End").setDesc("");
     }
     // A time zone means nothing for whole days.
-    this.timeZoneSetting.settingEl.toggle(!allDay);
+    this.startTimeZoneSetting.settingEl.toggle(!allDay);
+    this.endTimeZoneSetting.settingEl.toggle(!allDay);
+  }
+
+  private addTimeZoneSuggest(text: TextComponent): void {
+    new ListSuggest(
+      this.app,
+      text,
+      (query) => suggestTimeZones(query, timeZones()),
+      (_, zone) => zone
+    );
   }
 
   private submit(): void {

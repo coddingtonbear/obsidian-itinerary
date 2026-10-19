@@ -14,20 +14,51 @@ export interface EventFormValues {
   /** For an all-day event, the last day it covers (inclusive); see
    * toExclusiveEnd. */
   end: string;
-  timeZone: string;
+  /** The zones the start and end are in; they differ for a flight that
+   * crosses zones. Empty means the reader's own zone. */
+  startTimeZone: string;
+  endTimeZone: string;
   tags: string[];
   color: string;
 }
 
-export function emptyEventForm(): EventFormValues {
+/** An empty form, with both ends in `timeZone` (the user's own zone, from
+ * defaultTimeZone, when the form opens). */
+export function emptyEventForm(timeZone = ""): EventFormValues {
   return {
     title: "",
     allDay: false,
     start: "",
     end: "",
-    timeZone: "",
+    startTimeZone: timeZone,
+    endTimeZone: timeZone,
     tags: [],
     color: "",
+  };
+}
+
+/** The zone the system is set to, or empty if it can't be told. */
+export function defaultTimeZone(): string {
+  try {
+    const zone = Temporal.Now.timeZoneId();
+    return isKnownTimeZone(zone) ? zone : "";
+  } catch {
+    return "";
+  }
+}
+
+/** The form's values after the start's zone changes. The end's zone
+ * follows it while the two are the same, so only an event that ends
+ * somewhere else (a flight) needs both set. */
+export function setStartTimeZone(
+  values: EventFormValues,
+  zone: string
+): EventFormValues {
+  const following = values.endTimeZone.trim() === values.startTimeZone.trim();
+  return {
+    ...values,
+    startTimeZone: zone,
+    endTimeZone: following ? zone : values.endTimeZone,
   };
 }
 
@@ -154,17 +185,45 @@ export function validateEventForm(values: EventFormValues): string[] {
       );
     }
   }
-  const zone = values.timeZone.trim();
-  if (!values.allDay && zone !== "" && !isKnownTimeZone(zone)) {
-    problems.push(`"${zone}" isn't a time zone Obsidian knows.`);
+  if (!values.allDay) {
+    const zones = new Set([
+      values.startTimeZone.trim(),
+      values.endTimeZone.trim(),
+    ]);
+    for (const zone of zones) {
+      if (zone !== "" && !isKnownTimeZone(zone)) {
+        problems.push(`"${zone}" isn't a time zone Obsidian knows.`);
+      }
+    }
   }
   return problems;
 }
 
+/** Compares the end with the start. A timed event's ends may be in
+ * different zones, so they're compared as instants: a flight that lands
+ * at an earlier clock time than it took off is fine. */
 function compareTimes(values: EventFormValues): number {
-  return values.allDay
-    ? Temporal.PlainDate.compare(values.end, values.start)
-    : Temporal.PlainDateTime.compare(values.end, values.start);
+  if (values.allDay) {
+    return Temporal.PlainDate.compare(values.end, values.start);
+  }
+  const start = toInstant(values.start, values.startTimeZone);
+  const end = toInstant(values.end, values.endTimeZone);
+  if (start === null || end === null) {
+    // An unknown zone, reported on its own; compare the clock times.
+    return Temporal.PlainDateTime.compare(values.end, values.start);
+  }
+  return Temporal.Instant.compare(end, start);
+}
+
+function toInstant(time: string, zone: string): Temporal.Instant | null {
+  const trimmed = zone.trim();
+  try {
+    return Temporal.PlainDateTime.from(time)
+      .toZonedDateTime(trimmed === "" ? Temporal.Now.timeZoneId() : trimmed)
+      .toInstant();
+  } catch {
+    return null;
+  }
 }
 
 /** Writes a YAML scalar, quoting it only when it wouldn't read back as
@@ -200,9 +259,8 @@ export function serializeEventForm(values: EventFormValues): string {
       `end: ${values.allDay ? toExclusiveEnd(values.end) : values.end}`
     );
   }
-  const zone = values.timeZone.trim();
-  if (!values.allDay && zone !== "") {
-    lines.push(`timeZone: ${yamlScalar(zone)}`);
+  if (!values.allDay) {
+    lines.push(...zoneLines(values));
   }
   const color = values.color.trim();
   if (color !== "") {
@@ -213,6 +271,25 @@ export function serializeEventForm(values: EventFormValues): string {
     lines.push("tag:", ...tags.map((tag) => `- ${yamlScalar(tag)}`));
   }
   return lines.join("\n");
+}
+
+/** One `timeZone` when both ends are in the same zone; otherwise
+ * `startTimeZone` and `endTimeZone`, leaving out an end left empty (it's
+ * then in the reader's own zone). */
+function zoneLines(values: EventFormValues): string[] {
+  const start = values.startTimeZone.trim();
+  const end = values.endTimeZone.trim();
+  if (start === end) {
+    return start === "" ? [] : [`timeZone: ${yamlScalar(start)}`];
+  }
+  const lines: string[] = [];
+  if (start !== "") {
+    lines.push(`startTimeZone: ${yamlScalar(start)}`);
+  }
+  if (end !== "") {
+    lines.push(`endTimeZone: ${yamlScalar(end)}`);
+  }
+  return lines;
 }
 
 /** A whole fenced `itinerary-event` block for the form's values. */
