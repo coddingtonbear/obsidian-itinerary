@@ -13,6 +13,7 @@ import {
   emptyEventForm,
   eventBlock,
   parseTagInput,
+  setEndTimeZone,
   setStartTimeZone,
   suggestTags,
   suggestTimeZones,
@@ -111,7 +112,7 @@ export class EventModal extends Modal {
       .setName("Start time zone")
       .setDesc(
         "The zone the start is in. Type a city to find it. Leave empty for " +
-          "the zone of whoever reads the note."
+          "the zone the event is displayed in."
       )
       .addText((text) => {
         text.setValue(this.values.startTimeZone);
@@ -131,7 +132,9 @@ export class EventModal extends Modal {
       .addText((text) => {
         this.endTimeZoneInput = text;
         text.setValue(this.values.endTimeZone);
-        text.onChange((value) => (this.values.endTimeZone = value));
+        text.onChange(
+          (value) => (this.values = setEndTimeZone(this.values, value))
+        );
         this.addTimeZoneSuggest(text);
       });
 

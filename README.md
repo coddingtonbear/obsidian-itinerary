@@ -122,7 +122,7 @@ If you'd rather not remember which fields an event takes, run **Itinerary: Inser
 
 - Turning on **All day** switches the start and end to dates and hides the time zones, which don't apply to whole days.
 - For an all-day event, the form asks for the **last day** the event covers and writes the day after as its `end`, since all-day `end` dates are exclusive (see "Itinerary Event Options" below).
-- Both time zones start out as your computer's own, and the end's zone follows the start's until you change it, so only an event that ends somewhere else (a flight, say) needs both set.  When they're the same the form writes one `timeZone`; when they differ, `startTimeZone` and `endTimeZone` (see "Timezones" below).  Clear a zone to leave it out, so the event is read in the zone of whoever is looking at it.
+- Both time zones start out as your computer's own, and the end's zone follows the start's until you change it, so only an event that ends somewhere else (a flight, say) needs both set.  When they're the same the form writes one `timeZone`; when they differ, `startTimeZone` and `endTimeZone` (see "Timezones" below).  If you're planning from home for somewhere else, set the start's zone to the destination's.  Clear a zone to leave it out, so the time is read in whatever zone the event is displayed in.
 - The time zone fields suggest zone names as you type (`new york` finds `America/New_York`).
 - The end can't be before the start, comparing the two in their own zones: a flight that lands at an earlier clock time than it took off is fine.
 - The tags field suggests tags already used by events in the same note.

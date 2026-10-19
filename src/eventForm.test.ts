@@ -10,6 +10,7 @@ import {
   padForInsertion,
   parseTagInput,
   serializeEventForm,
+  setEndTimeZone,
   setStartTimeZone,
   suggestTags,
   suggestTimeZones,
@@ -531,10 +532,20 @@ describe("time zones for each end", () => {
           endTimeZone: "Moon/Tranquility",
         })
       )
-    ).toEqual([
-      "The end is before the start.",
-      '"Moon/Tranquility" isn\'t a time zone Obsidian knows.',
-    ]);
+    ).toEqual(['"Moon/Tranquility" isn\'t a time zone Obsidian knows.']);
+  });
+
+  test("ignores the end's zone when there is no end", () => {
+    const values = form({
+      title: "A",
+      start: "2021-11-01T12:00",
+      startTimeZone: "Europe/Paris",
+      endTimeZone: "Europ/Paris",
+    });
+    expect(validateEventForm(values)).toEqual([]);
+    expect(serializeEventForm(values)).toBe(
+      "title: A\nstart: 2021-11-01T12:00\ntimeZone: Europe/Paris"
+    );
   });
 
   describe("setStartTimeZone", () => {
@@ -548,18 +559,30 @@ describe("time zones for each end", () => {
     });
 
     test("leaves an end's zone that was set apart", () => {
-      expect(
-        setStartTimeZone(
-          form({
-            startTimeZone: "America/Los_Angeles",
-            endTimeZone: "America/New_York",
-          }),
-          "America/Denver"
-        )
-      ).toMatchObject({
+      const apart = setEndTimeZone(
+        form({ timeZone: "America/Los_Angeles" }),
+        "America/New_York"
+      );
+      expect(setStartTimeZone(apart, "America/Denver")).toMatchObject({
         startTimeZone: "America/Denver",
         endTimeZone: "America/New_York",
       });
+    });
+
+    test("doesn't follow again just because the two zones meet", () => {
+      // The end's zone cleared on purpose, then the start's cleared too.
+      let values = setEndTimeZone(form({ timeZone: "America/Chicago" }), "");
+      values = setStartTimeZone(values, "");
+      values = setStartTimeZone(values, "Europe/Paris");
+      expect(values.endTimeZone).toBe("");
+    });
+
+    test("follows again once the end's zone is set back to the start's", () => {
+      let values = setEndTimeZone(form({ timeZone: "Asia/Tokyo" }), "UTC");
+      values = setEndTimeZone(values, "Asia/Tokyo");
+      expect(setStartTimeZone(values, "Asia/Seoul").endTimeZone).toBe(
+        "Asia/Seoul"
+      );
     });
 
     test("keeps following as a zone is typed letter by letter", () => {
