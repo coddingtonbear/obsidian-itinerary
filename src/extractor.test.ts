@@ -3,12 +3,9 @@ import { describe, test, expect } from "vitest";
 import { getEventInformation, parseEventSpec } from "./extractor";
 
 describe("parseEventSpec", () => {
-  test("applies default colors and title", () => {
+  test("applies a default title", () => {
     const evt = parseEventSpec("start: 2021-11-01T12:00");
     expect(evt.title).toBe("Untitled event");
-    expect(evt.backgroundColor).toBe("blue");
-    expect(evt.borderColor).toBe("blue");
-    expect(evt.textColor).toBe("white");
   });
 
   test("uses color for background and border", () => {
@@ -133,11 +130,34 @@ describe("parseEventSpec validation", () => {
     expect(evt.start).toBe("2021-12-31T18:00:00-05:00");
   });
 
-  test("interprets a date-only time as midnight in timeZone", () => {
-    const evt = parseEventSpec(
-      "start: 2021-12-31\ntimeZone: America/New_York"
+  test.each([
+    ["a space separator", "2021-12-31 23:00-00:00"],
+    ["a lowercase separator", "2021-12-31t23:00Z"],
+    ["a bracketed zone", "2021-12-31T18:00:00-05:00[America/New_York]"],
+    ["an offset with seconds", "2022-01-01T04:30:00+05:30:00"],
+  ])("keeps the instant of a time with %s", (_, start) => {
+    const evt = parseEventSpec(`start: "${start}"\ntimeZone: America/Chicago`);
+    expect(new Date(evt.start as string).toISOString()).toBe(
+      "2021-12-31T23:00:00.000Z"
     );
-    expect(evt.start).toBe("2021-12-31T00:00:00-05:00");
+  });
+
+  test("leaves date-only times as dates, even with a timeZone", () => {
+    // FullCalendar infers an all-day event from date-only times; giving
+    // them a zone would turn them into events at midnight.
+    const evt = parseEventSpec(
+      "start: 2021-12-31\nend: 2022-01-02\ntimeZone: America/New_York"
+    );
+    expect(evt.start).toBe("2021-12-31");
+    expect(evt.end).toBe("2022-01-02");
+  });
+
+  test("does not default colors the block doesn't set", () => {
+    // Defaults would override the itinerary's eventColor and the theme.
+    const evt = parseEventSpec("title: Plain");
+    expect(evt).not.toHaveProperty("backgroundColor");
+    expect(evt).not.toHaveProperty("borderColor");
+    expect(evt).not.toHaveProperty("textColor");
   });
 
   test("rejects an unknown time zone", () => {

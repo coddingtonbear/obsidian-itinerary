@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 // @vitest-environment jsdom
 import { parseEventSpec } from "./extractor";
 import { parseItinerarySpec } from "./spec";
-import { ItineraryRenderer, renderEvent } from "./render";
+import { ItineraryRenderer, renderEvent, toEventInput } from "./render";
 import { EventStore } from "./store";
 import { EventSpec, ItinerarySpec } from "./types";
 
@@ -158,6 +158,35 @@ describe("ItineraryRenderer", () => {
 
     expect(eventRows().map((row) => row.color)).toEqual(["green"]);
     renderer.unload();
+  });
+
+  test("leaves events without a color to the calendar's eventColor", async () => {
+    contents["trip.md"] = [
+      parseEventSpec("title: Plain\nstart: 2021-11-03T09:00"),
+      parseEventSpec("title: Green\nstart: 2021-11-03T10:00\ncolor: green"),
+    ];
+    const renderer = new ItineraryRenderer(
+      el,
+      { ...listSpec, eventColor: "purple" },
+      ["trip.md"],
+      store
+    );
+    renderer.load();
+    await settle();
+
+    expect(eventRows().map((row) => [row.title, row.color])).toEqual([
+      ["Plain", "purple"],
+      ["Green", "green"],
+    ]);
+    renderer.unload();
+  });
+
+  test("passes per-event classNames on as className", () => {
+    expect(
+      toEventInput(
+        parseEventSpec("title: X\nclassNames:\n  - one\n  - two")
+      ).className
+    ).toBe("one two");
   });
 
   test("notes translated FullCalendar 6 options in debug output", async () => {

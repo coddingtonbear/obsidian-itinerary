@@ -45,6 +45,18 @@ describe("describeEventTime", () => {
     ).toBe("November 1, 2021 (all day)");
   });
 
+  test("describes the date of an all-day event given as a UTC time", () => {
+    expect(
+      describe_(event({ allDay: true, start: "2021-12-31T23:00:00Z" }))
+    ).toBe("December 31, 2021 (all day)");
+  });
+
+  test("describes date-only events as all-day without allDay", () => {
+    expect(
+      describe_(event({ start: "2021-10-31", end: "2021-11-04" }))
+    ).toBe("October 31, 2021 - November 3, 2021 (all day)");
+  });
+
   test("describes an all-day event without a start as undated", () => {
     expect(describe_(event({ allDay: true, end: "2021-11-04" }))).toBe(
       "All day"

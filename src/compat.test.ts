@@ -60,6 +60,41 @@ describe("translateLegacyOptions", () => {
     });
   });
 
+  test("translates options set for a single view", () => {
+    const { options, notes } = translateLegacyOptions({
+      views: {
+        timeGridWeek: { slotLabelFormat: "h:mm", buttonText: "7 days" },
+      },
+    });
+    expect(options.views).toEqual({
+      timeGridWeek: { slotHeaderFormat: "h:mm" },
+    });
+    expect(options.buttons).toEqual({ timeGridWeek: { text: "7 days" } });
+    expect(notes).toEqual([
+      "Option 'views.timeGridWeek.slotLabelFormat' is now called 'slotHeaderFormat'; used it as that.",
+      "Option 'views.timeGridWeek.buttonText' is now part of 'buttons'; used it as that.",
+    ]);
+  });
+
+  test("renames weekText and folds buttonHints into buttons", () => {
+    const { options } = translateLegacyOptions({
+      weekText: "Wk",
+      buttonHints: { prev: "Back" },
+    });
+    expect(options.weekTextShort).toBe("Wk");
+    expect(options.buttons).toEqual({ prev: { hint: "Back" } });
+  });
+
+  test("drops eventBorderColor, which has no FullCalendar 7 equivalent", () => {
+    const { options, notes } = translateLegacyOptions({
+      eventBorderColor: "red",
+    });
+    expect(options).not.toHaveProperty("eventColor");
+    expect(notes).toEqual([
+      "Option 'eventBorderColor' no longer exists; ignored it.",
+    ]);
+  });
+
   test("drops removed options", () => {
     const { options, notes } = translateLegacyOptions({
       titleRangeSeparator: " to ",
