@@ -121,23 +121,28 @@ export function hasOnlyDates(start?: string, end?: string): boolean {
   return isDateOnly(start) && (end === undefined || isDateOnly(end));
 }
 
-/** Rewrites a time FullCalendar's own parser would reject (a bracketed
- * zone, an offset with seconds, a lowercase `t`) into one it accepts,
- * keeping its local date and offset where the time names a zone, and as
- * UTC otherwise. Times FullCalendar already accepts are left as written,
- * so filters comparing them as text see what the user wrote. */
-function toCalendarTime(time: string): string {
-  if (CalendarIsoPattern.test(time)) {
-    return time;
-  }
-  // Spellings FullCalendar rejects but that differ from a form it accepts
-  // only in letter case, decimal comma, or a zero seconds field on the
-  // offset: fix the spelling and keep the date, time and offset written.
-  const respelled = time
+/** Fixes spellings FullCalendar's parser rejects but that differ from a
+ * form it accepts only in letter case, a decimal comma, or a zero seconds
+ * field on the offset; the date, time and offset written are kept. */
+function respell(time: string): string {
+  return time
     .replace(/^(\s*\d{4}-?\d{2}-?\d{2})t/, "$1T")
     .replace(/z$/, "Z")
     .replace(/(\d),(\d+)/, "$1.$2")
     .replace(/([-+]\d{2}:?\d{2}):?00$/, "$1");
+}
+
+/** Rewrites a time FullCalendar's own parser would reject into one it
+ * accepts. Times it accepts, and respellable ones, keep the date, time and
+ * offset written, so filters comparing them as text see what the user
+ * wrote; a time naming a zone in brackets is written with that zone's
+ * offset; any other time with an offset becomes UTC; and a wall-clock time
+ * only Temporal reads (`2021-11-01T12`) is written out in full. */
+function toCalendarTime(field: string, time: string): string {
+  if (CalendarIsoPattern.test(time)) {
+    return time;
+  }
+  const respelled = respell(time);
   if (CalendarIsoPattern.test(respelled)) {
     return respelled;
   }
@@ -150,12 +155,38 @@ function toCalendarTime(time: string): string {
   if (instant) {
     return instant.toString();
   }
-  // A wall-clock time in a form only Temporal reads (`2021-11-01T12`).
+  if (time.includes("[")) {
+    // A zone Temporal doesn't know; reading the rest as wall-clock time
+    // would put the event somewhere the user didn't ask for.
+    throw new Error(
+      `Could not interpret event ${field} "${time}": unknown time zone.`
+    );
+  }
   try {
     return Temporal.PlainDateTime.from(time).toString();
   } catch {
     return time;
   }
+}
+
+/** The date an all-day event's time was written on. FullCalendar would
+ * convert a time with an offset into the calendar's zone before taking its
+ * date, which can move it a day; an all-day event means the date written. */
+function toCalendarDate(field: string, time: string): string {
+  if (isDateOnly(time)) {
+    return time;
+  }
+  try {
+    // Accepts offsets and bracketed zones, and keeps the date as written.
+    return Temporal.PlainDate.from(respell(time)).toString();
+  } catch {
+    // `Z` times, or forms only toCalendarTime can read.
+  }
+  const instant = readInstant(time);
+  if (instant) {
+    return instant.toZonedDateTimeISO("UTC").toPlainDate().toString();
+  }
+  return toCalendarTime(field, time);
 }
 
 /** Interprets a wall-clock time in the given zone as an absolute ISO time.
@@ -176,13 +207,18 @@ function applyZone(
     return time;
   }
   if (zone === undefined) {
-    return toCalendarTime(time);
+    return toCalendarTime(field, time);
   }
   const instant = readInstant(time);
   try {
     const zoned =
       instant?.toZonedDateTimeISO(zone) ??
-      Temporal.PlainDateTime.from(time).toZonedDateTime(zone);
+      (time.includes("[")
+        ? null
+        : Temporal.PlainDateTime.from(time).toZonedDateTime(zone));
+    if (zoned === null) {
+      throw new Error("unknown time zone");
+    }
     return zoned.toString({ timeZoneName: "never" });
   } catch (e) {
     throw new Error(
@@ -213,10 +249,8 @@ export function parseEventSpec(eventSpec: string): EventSpec {
 
   // Apply timezones to start/end times if provided
   if (allDay) {
-    // FullCalendar uses only the date of an all-day event's times, but it
-    // still has to be able to read them.
-    start = start === undefined ? start : toCalendarTime(start);
-    end = end === undefined ? end : toCalendarTime(end);
+    start = start === undefined ? start : toCalendarDate("start", start);
+    end = end === undefined ? end : toCalendarDate("end", end);
   } else {
     // Dates are left as dates only when the event is all-day by
     // inference; `allDay: false` asks for them as midnight in the zone.
