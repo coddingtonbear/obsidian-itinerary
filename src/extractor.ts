@@ -259,12 +259,21 @@ function withoutDateAnnotation(time: string | undefined): string | undefined {
 }
 
 export function parseEventSpec(eventSpec: string): EventSpec {
+  return toEventSpec(readEventFields(eventSpec));
+}
+
+/** An event block's fields, as written. */
+export function readEventFields(eventSpec: string): Record<string, unknown> {
   const parsed: unknown = parseYaml(eventSpec);
   const spec = parsed ?? {};
   if (!isRecord(spec)) {
     throw new Error("Event must be a set of `key: value` fields.");
   }
+  return spec;
+}
 
+/** The event an event block's fields describe. */
+export function toEventSpec(spec: Record<string, unknown>): EventSpec {
   const timeZone = readString(spec, "timeZone");
   const startTimeZone = readString(spec, "startTimeZone");
   const endTimeZone = readString(spec, "endTimeZone");
