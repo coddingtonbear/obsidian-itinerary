@@ -119,6 +119,8 @@ And as a reward for your effort, you can then render calendars for your various 
 
 ## Options
 
+While you edit an `itinerary` or `itinerary-event` block, the editor suggests the options below as you type a field's name, and some of their values: time zones, `true`/`false`, the views `initialView` accepts, and tags you've already used on events in the same note.
+
 ### Itinerary Options
 
 You can specify the following options for displaying your itinerary:

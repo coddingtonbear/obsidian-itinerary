@@ -4,6 +4,7 @@ import { getEventInformation, parseEventSpec } from "./extractor";
 import { ItineraryRenderer, renderErrorPre, renderEvent } from "./render";
 import { SourceLookup, resolveSourcePath } from "./sources";
 import { parseItinerarySpec } from "./spec";
+import { BlockSuggest } from "./suggest";
 import { EventStore } from "./store";
 import { DocumentPath, EventSpec } from "./types";
 import { errorMessage, getArrayForArrayOrObject } from "./util";
@@ -53,6 +54,7 @@ export default class Itinerary extends Plugin {
     this.registerMarkdownCodeBlockProcessor("itinerary-event", (source, el) =>
       this.renderEvent(source, el)
     );
+    this.registerEditorSuggest(new BlockSuggest(this.app));
   }
 
   private async readEvents(path: DocumentPath): Promise<EventSpec[]> {
