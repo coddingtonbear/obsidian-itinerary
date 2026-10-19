@@ -152,8 +152,11 @@ describe("parseEventSpec validation", () => {
   });
 
   test.each([
-    ["a lowercase separator", "2021-11-01t11:00Z", "2021-11-01T11:00:00Z"],
-    ["an offset with seconds", "2021-11-01T12:00+01:00:00", "2021-11-01T11:00:00Z"],
+    ["a lowercase separator", "2021-11-01t11:00z", "2021-11-01T11:00Z"],
+    ["an offset with seconds", "2021-11-01T00:30+01:00:00", "2021-11-01T00:30+01:00"],
+    ["a lowercase separator and offset", "2021-11-01t00:30+01:00", "2021-11-01T00:30+01:00"],
+    ["a decimal comma", "2021-11-01T00:30:00,5Z", "2021-11-01T00:30:00.5Z"],
+    ["an hour and no minutes", "2021-11-01T12", "2021-11-01T12:00:00"],
   ])("rewrites a time with %s for FullCalendar when no zone is set", (_, start, expected) => {
     expect(parseEventSpec(`start: "${start}"`).start).toBe(expected);
   });
@@ -161,6 +164,13 @@ describe("parseEventSpec validation", () => {
   test("keeps the local date of a bracketed time when no zone is set", () => {
     const evt = parseEventSpec('start: "2021-11-01T00:30+01:00[Europe/Paris]"');
     expect(evt.start).toBe("2021-11-01T00:30:00+01:00");
+  });
+
+  test("rewrites an all-day event's bracketed time for FullCalendar", () => {
+    const evt = parseEventSpec(
+      'allDay: true\nstart: "2021-11-01T10:00[Europe/Paris]"'
+    );
+    expect(evt.start).toBe("2021-11-01T10:00:00+01:00");
   });
 
   test("reads a zone-annotated date as the date", () => {

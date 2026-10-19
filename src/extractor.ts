@@ -130,12 +130,32 @@ function toCalendarTime(time: string): string {
   if (CalendarIsoPattern.test(time)) {
     return time;
   }
+  // Spellings FullCalendar rejects but that differ from a form it accepts
+  // only in letter case, decimal comma, or a zero seconds field on the
+  // offset: fix the spelling and keep the date, time and offset written.
+  const respelled = time
+    .replace(/^(\s*\d{4}-?\d{2}-?\d{2})t/, "$1T")
+    .replace(/z$/, "Z")
+    .replace(/(\d),(\d+)/, "$1.$2")
+    .replace(/([-+]\d{2}:?\d{2}):?00$/, "$1");
+  if (CalendarIsoPattern.test(respelled)) {
+    return respelled;
+  }
   try {
     return Temporal.ZonedDateTime.from(time).toString({ timeZoneName: "never" });
   } catch {
-    // Names no zone; fall back to the instant, if it has one.
+    // Names no zone.
   }
-  return readInstant(time)?.toString() ?? time;
+  const instant = readInstant(time);
+  if (instant) {
+    return instant.toString();
+  }
+  // A wall-clock time in a form only Temporal reads (`2021-11-01T12`).
+  try {
+    return Temporal.PlainDateTime.from(time).toString();
+  } catch {
+    return time;
+  }
 }
 
 /** Interprets a wall-clock time in the given zone as an absolute ISO time.
@@ -192,7 +212,12 @@ export function parseEventSpec(eventSpec: string): EventSpec {
   let end = withoutDateAnnotation(readString(spec, "end"));
 
   // Apply timezones to start/end times if provided
-  if (!allDay) {
+  if (allDay) {
+    // FullCalendar uses only the date of an all-day event's times, but it
+    // still has to be able to read them.
+    start = start === undefined ? start : toCalendarTime(start);
+    end = end === undefined ? end : toCalendarTime(end);
+  } else {
     // Dates are left as dates only when the event is all-day by
     // inference; `allDay: false` asks for them as midnight in the zone.
     const datesOnly = allDay === undefined && hasOnlyDates(start, end);
