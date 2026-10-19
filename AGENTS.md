@@ -8,6 +8,7 @@
 | `src/spec.ts` | Parses and validates an `itinerary` block's YAML. |
 | `src/sources.ts` | Resolves `source` entries (`[[links]]` or vault paths) to document paths. |
 | `src/extractor.ts` | Finds and parses `itinerary-event` blocks. |
+| `src/checks.ts` | Finds likely mistakes in an `itinerary-event` block, shown on its summary; holds the list of event fields FullCalendar 7 reads. |
 | `src/filter.ts` | Compiles `filter` expressions with filtrex. |
 | `src/store.ts` | Caches each document's events and notifies itineraries when they change. |
 | `src/format.ts` | Describes an event's time for its summary chip. |
