@@ -168,7 +168,7 @@ Any of an event's options can be used in an expression.  An option an event does
 A few things worth knowing about the syntax:
 
 - `<`, `<=`, `>` and `>=` compare two numbers or two pieces of text; since dates are written as ISO text, `start >= "2021-11-01" and start < "2021-11-02"` picks out a single day's events.
-- `tag == "hotel"` matches an event whose *only* tag is `hotel`; use `"hotel" in tag` to match any event tagged `hotel`.
+- `tag == "hotel"` matches an event whose *only* tag is `hotel`; use `"hotel" in tag` to match any event tagged `hotel`, and `empty(tag)` to match untagged events.
 - `not`, `and` and `or` need `true`/`false` values, so `not color` is an error for an event without a color, and `not tag` is an error for every event; use `"hotel" not in tag`, or a bare `tag` to pick out tagged events.  With `debug: true`, the itinerary explains why each event was left out.
 
 See "Filtering events based upon tag" for an example of a filter expression in action, but realistically they work exactly as you'd probably expect.
@@ -340,8 +340,12 @@ A few things do behave differently:
 - An event whose times are all dates (`start: 2021-11-04`, `end: 2021-11-08`, no `allDay`) now counts as all-day in filters, matching how the calendar has always drawn it: `filter: allDay` includes it and `not allDay` leaves it out.
 - The summary shown where you wrote an all-day event names the last day the calendar draws it on.  FullCalendar treats an all-day event's `end` as exclusive, so an event ending on November 4th is described as running through November 3rd.
 - An event whose `start` and `end` are dates without times is drawn as all-day even when it has a `timeZone`; version 1 drew it as a timed event starting at midnight in that zone.  Add `allDay: false` to keep the old behavior.
-- Filters are stricter about types; see "Expressions" above.
+- Filters are stricter about types; see "Expressions" above.  In particular, a `start` or `end` written as a number (milliseconds since 1970) is now compared as an ISO date, so a filter comparing it with a number no longer matches.
 - The plugin now requires Obsidian 1.13.1 or newer.
+
+## Styling
+
+The calendar takes its colors from your Obsidian theme through FullCalendar's `--fc-classic-*` CSS variables.  To change them with a CSS snippet, set them on `.itinerary-calendar, .itinerary-popover` (the popover is the "+N more" list), e.g. `--fc-classic-today: rgba(255, 200, 0, 0.1)`.
 
 ## Development
 

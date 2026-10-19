@@ -44,6 +44,24 @@ function unwrapSingle(value: unknown): unknown {
   return Array.isArray(value) && value.length === 1 ? value[0] : value;
 }
 
+/** Whether a value holds nothing: also true of an untagged event's `[null]`
+ * tags (see tagsForFilter). */
+function isEmpty(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.every((item) => item === null || item === undefined);
+  }
+  return value === undefined || value === null || value === "";
+}
+
+/** filtrex's `empty()` and `exists()`, aware of `[null]` tags. */
+const extraFunctions = {
+  empty: (value: unknown) => isEmpty(value),
+  exists: (value: unknown) =>
+    Array.isArray(value)
+      ? !isEmpty(value)
+      : value !== undefined && value !== null,
+};
+
 const operators = {
   "==": (a: unknown, b: unknown) => unwrapSingle(a) === unwrapSingle(b),
   "!=": (a: unknown, b: unknown) => unwrapSingle(a) !== unwrapSingle(b),
@@ -97,6 +115,7 @@ export function compileFilter(expression: string): EventFilter {
   const compiled = compileExpression(expression, {
     customProp: readOptionalProperty,
     operators,
+    extraFunctions,
   });
   return (evt: EventSpec): FilterResult => {
     const result: unknown = compiled({

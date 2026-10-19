@@ -93,14 +93,23 @@ export class EventStore {
     }
   }
 
-  /** Re-reads every document a subscriber shows, e.g. once the vault has
-   * finished loading. */
+  /** Re-reads every document a subscriber shows that came back empty or
+   * failed, e.g. once the vault has finished loading and notes that weren't
+   * there yet may be. Sources that loaded are left alone. */
   async refreshAll(): Promise<void> {
     const paths = new Set(
       [...this.subscribers].flatMap((subscriber) => subscriber.sourcePaths)
     );
     await Promise.all(
-      [...paths].map((path) => this.refresh(path).catch(() => undefined))
+      [...paths].map(async (path) => {
+        const cached = this.events.get(path);
+        const loaded = cached
+          ? await cached.catch(() => null)
+          : null;
+        if (loaded === null || loaded.length === 0) {
+          await this.refresh(path).catch(() => undefined);
+        }
+      })
     );
   }
 
@@ -131,9 +140,9 @@ export class EventStore {
 
   /** Drops a document that was deleted. */
   forget(path: DocumentPath): void {
-    if (!this.events.delete(path)) {
-      return;
-    }
+    // Notify even if nothing was cached: a failed read isn't, and its
+    // dependents should stop showing that error.
+    this.events.delete(path);
     for (const subscriber of this.dependentsOf(path)) {
       subscriber.onEventsChanged();
     }

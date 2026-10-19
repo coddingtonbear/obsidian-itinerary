@@ -27,7 +27,6 @@ const RenamedOptions: Record<string, string> = {
   weekText: "weekTextShort",
   allDayContent: "allDayHeaderContent",
   slotLabelContent: "slotHeaderContent",
-  weekNumberContent: "weekNumberHeaderContent",
   dayCellContent: "dayCellTopContent",
 };
 
@@ -38,6 +37,12 @@ const ViewsByButtonTextUnit: Record<string, string[]> = {
   week: ["dayGridWeek", "timeGridWeek"],
   day: ["dayGridDay", "timeGridDay"],
   list: ["listDay", "listWeek", "listMonth", "listYear"],
+};
+
+/** Options FullCalendar 7 split in two, both of which take the old value:
+ * week numbers in the time grid's header and inline in the day grid. */
+const SplitOptions: Record<string, string[]> = {
+  weekNumberContent: ["weekNumberHeaderContent", "inlineWeekNumberContent"],
 };
 
 /** Options from FullCalendar 5 and 6 that FullCalendar 7 removed outright. */
@@ -121,6 +126,22 @@ function translateRenamedAndRemoved(
     options[current] = value;
     notes.push(
       `Option '${path}${legacy}' is now called '${current}'; used it as that.`
+    );
+  }
+
+  for (const [legacy, replacements] of Object.entries(SplitOptions)) {
+    if (!(legacy in options)) {
+      continue;
+    }
+    const value = options[legacy];
+    delete options[legacy];
+    for (const replacement of replacements) {
+      if (!(replacement in options)) {
+        options[replacement] = value;
+      }
+    }
+    notes.push(
+      `Option '${path}${legacy}' is now '${replacements.join("' and '")}'; used it as those.`
     );
   }
 

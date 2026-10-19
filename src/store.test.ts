@@ -160,9 +160,10 @@ describe("EventStore", () => {
     expect(reads).toHaveLength(2);
   });
 
-  test("refreshes everything subscribers show on request", async () => {
+  test("refreshes sources that came back empty on request", async () => {
     const onA = subscriber(["a.md"]);
     store.subscribe(onA);
+    contents["a.md"] = [];
     await store.getEvents(["a.md"]);
     contents["a.md"] = [event("A2")];
 
@@ -171,6 +172,28 @@ describe("EventStore", () => {
     expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
     const events = await store.getEvents(["a.md"]);
     expect(events.map((e) => e.title)).toEqual(["A2"]);
+  });
+
+  test("tells dependents about a deleted note even if its read had failed", async () => {
+    const onA = subscriber(["a.md"]);
+    store.subscribe(onA);
+    read.mockRejectedValueOnce(new Error("busy"));
+    await expect(store.getEvents(["a.md"])).rejects.toThrow();
+
+    store.forget("a.md");
+
+    expect(onA.onEventsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  test("re-reads only empty or failed sources when everything is refreshed", async () => {
+    const onA = subscriber(["a.md", "c.md"]);
+    store.subscribe(onA);
+    await store.getEvents(["a.md", "c.md"]);
+    read.mockClear();
+
+    await store.refreshAll();
+
+    expect(read.mock.calls.map(([path]) => path)).toEqual(["c.md"]);
   });
 
   test("retries a read that failed", async () => {

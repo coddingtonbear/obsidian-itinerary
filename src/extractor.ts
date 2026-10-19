@@ -90,7 +90,7 @@ function readTags(
   return readString(spec, "tag");
 }
 
-const DateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+const DateOnlyPattern = /^\d{4}-?\d{2}-?\d{2}$/;
 
 /** A date with a zone annotation but no time, e.g. `2021-11-01[Europe/Paris]`. */
 const AnnotatedDatePattern = /^(\d{4}-\d{2}-\d{2})\[[^\]]*\]$/;
@@ -189,11 +189,7 @@ function toCalendarTime(field: string, time: string): string {
 /** The date an all-day event's time was written on. FullCalendar would
  * convert a time with an offset into the calendar's zone before taking its
  * date, which can move it a day; an all-day event means the date written. */
-function toCalendarDate(
-  field: string,
-  time: string,
-  zone: string | undefined
-): string {
+function toCalendarDate(field: string, time: string): string {
   if (isDateOnly(time)) {
     return time;
   }
@@ -207,11 +203,9 @@ function toCalendarDate(
   }
   const instant = readInstant(time);
   if (instant) {
-    // A `Z` time names no local date; take it in the event's zone.
-    return instant
-      .toZonedDateTimeISO(zone ?? "UTC")
-      .toPlainDate()
-      .toString();
+    // A `Z` time's date as written is its date in UTC, the same as for a
+    // `+00:00` time (which PlainDate.from read above).
+    return instant.toZonedDateTimeISO("UTC").toPlainDate().toString();
   }
   return toCalendarTime(field, time);
 }
@@ -275,14 +269,8 @@ export function parseEventSpec(eventSpec: string): EventSpec {
 
   // Apply timezones to start/end times if provided
   if (allDay) {
-    start =
-      start === undefined
-        ? start
-        : toCalendarDate("start", start, startTimeZone ?? timeZone);
-    end =
-      end === undefined
-        ? end
-        : toCalendarDate("end", end, endTimeZone ?? timeZone);
+    start = start === undefined ? start : toCalendarDate("start", start);
+    end = end === undefined ? end : toCalendarDate("end", end);
   } else {
     start = applyZone("start", start, startTimeZone ?? timeZone);
     end = applyZone("end", end, endTimeZone ?? timeZone);

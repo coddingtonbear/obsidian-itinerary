@@ -74,6 +74,14 @@ describe("compileFilter", () => {
     expect(compileFilter("tag")(event({ tag: "hotel" }))).toBe(true);
   });
 
+  test("treats an untagged event's tags as empty in empty() and exists()", () => {
+    expect(compileFilter("empty(tag)")(event({}))).toBe(true);
+    expect(compileFilter("empty(tag)")(event({ tag: "hotel" }))).toBe(false);
+    expect(compileFilter("exists(tag)")(event({}))).toBe(false);
+    expect(compileFilter("exists(tag)")(event({ tag: "hotel" }))).toBe(true);
+    expect(compileFilter("exists(color)")(event({ color: "red" }))).toBe(true);
+  });
+
   test("compares string properties", () => {
     const filter = compileFilter('color == "red"');
     expect(filter(event({ color: "red" }))).toBe(true);

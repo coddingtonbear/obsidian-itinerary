@@ -120,6 +120,12 @@ describe("translateLegacyOptions", () => {
     expect(options.slotHeaderContent).toBe("x");
   });
 
+  test("labels both kinds of week number from weekNumberContent", () => {
+    const { options } = translateLegacyOptions({ weekNumberContent: "W" });
+    expect(options.weekNumberHeaderContent).toBe("W");
+    expect(options.inlineWeekNumberContent).toBe("W");
+  });
+
   test("drops removed options", () => {
     const { options, notes } = translateLegacyOptions({
       titleRangeSeparator: " to ",

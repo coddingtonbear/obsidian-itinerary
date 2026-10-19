@@ -262,12 +262,18 @@ describe("parseEventSpec validation", () => {
     );
   });
 
-  test("dates an all-day UTC time in the event's timeZone", () => {
-    expect(
-      parseEventSpec(
-        'allDay: true\nstart: "2021-11-02T01:00Z"\ntimeZone: America/New_York'
-      ).start
-    ).toBe("2021-11-01");
+  test("dates an all-day time on the date written, whatever its offset", () => {
+    for (const start of ["2021-11-02T01:00Z", "2021-11-02T01:00+00:00"]) {
+      expect(
+        parseEventSpec(
+          `allDay: true\nstart: "${start}"\ntimeZone: America/New_York`
+        ).start
+      ).toBe("2021-11-02");
+    }
+  });
+
+  test("treats a compact date as a date", () => {
+    expect(parseEventSpec("start: '20211101'").allDay).toBe(true);
   });
 
   test("accepts a calendar annotation in brackets", () => {
