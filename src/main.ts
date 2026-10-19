@@ -6,6 +6,7 @@ import {
   TFile,
 } from "obsidian";
 
+import { readEventBlock } from "./checks";
 import {
   BlockLocation,
   EventEdit,
@@ -16,7 +17,7 @@ import {
 } from "./eventEdit";
 import { eventBlock, padForInsertion, tagsInNote } from "./eventForm";
 import { EventModal } from "./eventModal";
-import { getEventInformation, parseEventSpec } from "./extractor";
+import { getEventInformation } from "./extractor";
 import {
   EventSummaryRenderer,
   ItineraryRenderer,
@@ -211,8 +212,9 @@ export default class Itinerary extends Plugin implements RuleSettingsHost {
     ctx: MarkdownPostProcessorContext
   ): void {
     try {
+      const { event, ...problems } = readEventBlock(source);
       ctx.addChild(
-        new EventSummaryRenderer(el, parseEventSpec(source), this.ruleBook, () =>
+        new EventSummaryRenderer(el, event, problems, this.ruleBook, () =>
           this.editEvent(source, el, ctx)
         )
       );

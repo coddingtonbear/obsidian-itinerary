@@ -65,6 +65,7 @@ describe("renderEvent", () => {
     const summary = new EventSummaryRenderer(
       el,
       parseEventSpec("title: Nikko\ntag: hotel"),
+      { errors: [], warnings: [] },
       book
     );
     summary.load();
@@ -87,7 +88,7 @@ describe("renderEvent", () => {
 
   test("keeps its tags and edit button together, to wrap as one", () => {
     const el = document.createElement("div");
-    renderEvent(el, event({ tag: ["hotel"] }), () => undefined);
+    renderEvent(el, event({ tag: ["hotel"] }), undefined, () => undefined);
     const tags = el.querySelector(".tags");
     expect(tags?.parentElement).toBe(el.querySelector("button")?.parentElement);
     expect(tags?.parentElement).not.toBe(el.querySelector(".itinerary-event"));
@@ -105,7 +106,7 @@ describe("renderEvent", () => {
     el.addEventListener("click", outside);
     el.addEventListener("mousedown", outside);
     const onEdit = vi.fn();
-    renderEvent(el, event({}), onEdit);
+    renderEvent(el, event({}), undefined, onEdit);
 
     const button = el.querySelector<HTMLButtonElement>(
       'button[aria-label="Edit event"]'
@@ -121,6 +122,37 @@ describe("renderEvent", () => {
     const el = document.createElement("div");
     renderEvent(el, event({ hidden: true }));
     expect(el.childElementCount).toBe(0);
+  });
+
+  test("shows warnings under the summary", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({}), { errors: [], warnings: ["First", "Second"] });
+    expect(el.querySelector(".itinerary-event")).not.toBeNull();
+    expect(
+      Array.from(el.querySelectorAll(".itinerary-warning")).map(
+        (w) => w.textContent
+      )
+    ).toEqual(["First", "Second"]);
+    expect(el.lastElementChild?.classList).toContain("itinerary-warnings");
+  });
+
+  test("shows errors instead of the summary", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({}), { errors: ["No start"], warnings: ["Odd"] });
+    expect(el.querySelector(".itinerary-event")).toBeNull();
+    expect(el.querySelector(".itinerary-error")?.textContent).toBe("No start");
+    expect(el.querySelector(".itinerary-warning")?.textContent).toBe("Odd");
+  });
+
+  test("shows a hidden event's problems, but not its summary", () => {
+    const el = document.createElement("div");
+    renderEvent(el, event({ hidden: true }), {
+      errors: ["No start"],
+      warnings: ["Odd"],
+    });
+    expect(el.querySelector(".itinerary-event")).toBeNull();
+    expect(el.querySelector(".itinerary-error")?.textContent).toBe("No start");
+    expect(el.querySelector(".itinerary-warning")?.textContent).toBe("Odd");
   });
 });
 

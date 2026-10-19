@@ -8,6 +8,7 @@
 | `src/spec.ts` | Parses and validates an `itinerary` block's YAML. |
 | `src/sources.ts` | Resolves `source` entries (`[[links]]` or vault paths) to document paths. |
 | `src/extractor.ts` | Finds and parses `itinerary-event` blocks. |
+| `src/checks.ts` | Finds likely mistakes in an `itinerary-event` block, shown on its summary; holds the list of event fields FullCalendar 7 reads. |
 | `src/filter.ts` | Compiles `filter` expressions with filtrex. |
 | `src/rules.ts` | Vault-wide event rules: matching, merging (JSON Merge Patch), and reading and validating them for the settings tab. |
 | `src/order.ts` | Orders events within a day by their `order`. |

@@ -7,6 +7,7 @@ import timeGridPlugin from "fullcalendar/timegrid";
 import classicTheme from "fullcalendar/themes/classic";
 import luxonFormatPlugin from "@fullcalendar/format-luxon3";
 
+import { EventProblems } from "./checks";
 import { EventFilter, compileFilter } from "./filter";
 import { describeEventTime } from "./format";
 import { RuleBook, ruleLabel } from "./rules";
@@ -264,6 +265,7 @@ export class EventSummaryRenderer extends MarkdownRenderChild {
   constructor(
     containerEl: HTMLElement,
     private readonly event: EventSpec,
+    private readonly problems: EventProblems,
     private readonly ruleBook: RuleBook,
     private readonly onEdit?: () => void
   ) {
@@ -280,22 +282,43 @@ export class EventSummaryRenderer extends MarkdownRenderChild {
     renderEvent(
       this.containerEl,
       this.ruleBook.apply(this.event).event,
+      this.problems,
       this.onEdit
     );
   }
 }
 
 /** Renders an event's summary where its `itinerary-event` block appears,
- * with an edit button when there's an `onEdit` to call. */
+ * with any likely mistakes found in the block. An event with errors can't
+ * appear on a calendar, so it gets the errors instead of a summary. A
+ * hidden event shows only its problems, which would otherwise go unseen.
+ * The summary gets an edit button when there's an `onEdit` to call. */
 export function renderEvent(
+  container: HTMLElement,
+  event: EventSpec,
+  problems: EventProblems = { errors: [], warnings: [] },
+  onEdit?: () => void
+): void {
+  if (problems.errors.length > 0) {
+    renderErrorPre(container, problems.errors.join("\n"));
+  } else if (!event.hidden) {
+    renderEventSummary(container, event, onEdit);
+  }
+  if (problems.warnings.length > 0) {
+    const list = container.createDiv({
+      cls: ["itinerary", "itinerary-warnings"],
+    });
+    for (const warning of problems.warnings) {
+      list.createDiv({ cls: "itinerary-warning", text: warning });
+    }
+  }
+}
+
+function renderEventSummary(
   container: HTMLElement,
   event: EventSpec,
   onEdit?: () => void
 ): void {
-  if (event.hidden) {
-    return;
-  }
-
   const element = container.createDiv({
     cls: ["itinerary", "itinerary-event"],
   });
