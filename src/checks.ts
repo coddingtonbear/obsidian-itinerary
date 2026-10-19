@@ -1,6 +1,11 @@
 import { Temporal } from "temporal-polyfill";
 
-import { CalendarIsoPattern, readEventFields, toEventSpec } from "./extractor";
+import {
+  CalendarIsoPattern,
+  readEventFields,
+  readInstant,
+  toEventSpec,
+} from "./extractor";
 import { EventSpec } from "./types";
 
 /** What's likely wrong with an `itinerary-event` block. Errors mean the
@@ -100,15 +105,26 @@ function normalize(field: string): string {
 }
 
 /** The number of single-character insertions, deletions, substitutions or
- * swaps of neighbouring characters turning one text into the other. */
-export function editDistance(a: string, b: string): number {
+ * swaps of neighbouring characters turning one text into the other. A
+ * substitution costs `substitutionCost` edits. */
+export function editDistance(
+  a: string,
+  b: string,
+  substitutionCost = 1
+): number {
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) =>
-    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+    Array.from({ length: b.length + 1 }, (_, j) =>
+      i === 0 ? j : j === 0 ? i : 0
+    )
   );
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      const cost = a[i - 1] === b[j - 1] ? 0 : substitutionCost;
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,
+        d[i][j - 1] + 1,
+        d[i - 1][j - 1] + cost
+      );
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
         d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
       }
@@ -117,14 +133,20 @@ export function editDistance(a: string, b: string): number {
   return d[a.length][b.length];
 }
 
-/** How many edits from a known field still read as a typo of it. Short
- * names get less room, since many short custom fields (`is`, `fee`) are
- * a couple of edits from one. */
-function typoAllowance(field: string): number {
-  if (field.length <= 2) {
-    return 0;
+/** How far a field may be from a known one and still read as a typo of
+ * it. Short names get less room, since many short custom fields are an
+ * edit or two from one: none for `id`; for names up to five letters, one
+ * missing, extra or swapped letter but no changed one (`gate`, `rate`,
+ * `stars` and `tax` aren't typos of `date`, `start` or `tag`); one edit
+ * up to seven letters (`group` isn't `groupId`); two beyond. */
+function isTypoOf(written: string, known: string): number | undefined {
+  if (known.length <= 2) {
+    return undefined;
   }
-  return field.length <= 5 ? 1 : 2;
+  const short = known.length <= 5;
+  const distance = editDistance(written, known, short ? 2 : 1);
+  const allowance = known.length <= 7 ? 1 : 2;
+  return distance <= allowance ? distance : undefined;
 }
 
 /** The known field an unknown one was probably meant to be, if any.
@@ -138,9 +160,9 @@ export function suggestField(field: string): string | undefined {
   }
   let best: { field: string; distance: number } | undefined;
   for (const known of KnownFields) {
-    const distance = editDistance(written, normalize(known));
+    const distance = isTypoOf(written, normalize(known));
     if (
-      distance <= typoAllowance(known) &&
+      distance !== undefined &&
       (best === undefined || distance < best.distance)
     ) {
       best = { field: known, distance };
@@ -154,10 +176,9 @@ export function suggestField(field: string): string | undefined {
 function readComparable(
   time: string
 ): Temporal.Instant | Temporal.PlainDateTime | null {
-  try {
-    return Temporal.Instant.from(time);
-  } catch {
-    // No offset.
+  const instant = readInstant(time);
+  if (instant) {
+    return instant;
   }
   try {
     return Temporal.PlainDateTime.from(time);
@@ -166,22 +187,47 @@ function readComparable(
   }
 }
 
-/** Whether an event's end is before its start. Unknown when one names an
- * offset and the other doesn't: the other is read in the calendar's zone,
- * which differs between itineraries. */
-function endsBeforeStart(start: string, end: string): boolean {
+/** Whether an event's end isn't after its start, which makes FullCalendar
+ * ignore the end. Unknown when one names an offset and the other doesn't:
+ * the other is read in the calendar's zone, which differs between
+ * itineraries. */
+function endsByStart(start: string, end: string): boolean {
   const from = readComparable(start);
   const to = readComparable(end);
   if (from instanceof Temporal.Instant && to instanceof Temporal.Instant) {
-    return Temporal.Instant.compare(to, from) < 0;
+    return Temporal.Instant.compare(to, from) <= 0;
   }
   if (
     from instanceof Temporal.PlainDateTime &&
     to instanceof Temporal.PlainDateTime
   ) {
-    return Temporal.PlainDateTime.compare(to, from) < 0;
+    return Temporal.PlainDateTime.compare(to, from) <= 0;
   }
   return false;
+}
+
+/** A date with only a year, or a year and month, which FullCalendar's
+ * parser also reads (as its first day). CalendarIsoPattern leaves these
+ * out, since the plugin never writes them. */
+const PartialDatePattern = /^\s*\d{4}(?:-?\d{2})?$/;
+
+/** Whether FullCalendar's date parser can read a time as written. */
+export function isCalendarReadable(time: string): boolean {
+  return CalendarIsoPattern.test(time) || PartialDatePattern.test(time);
+}
+
+/** A whole number of eight digits, which YAML reads from an unquoted
+ * compact date like `20211101`: as a time, it's milliseconds since 1970. */
+function looksLikeCompactDate(value: unknown): value is number {
+  return typeof value === "number" && /^\d{8}$/.test(String(value));
+}
+
+/** Whether a time, as written, names its own offset or zone. */
+function namesItsZone(value: unknown): boolean {
+  return (
+    typeof value === "number" ||
+    (typeof value === "string" && readInstant(value) !== null)
+  );
 }
 
 /** Looks for likely mistakes in an event block: `spec` is the block's
@@ -195,16 +241,29 @@ export function checkEvent(
   const isSet = (field: string): boolean =>
     spec[field] !== undefined && spec[field] !== null;
 
-  if (event.start === undefined) {
-    // FullCalendar also reads `date` as the start, and recurring events
-    // have none.
-    if (!isSet("date") && !RecurrenceFields.some(isSet)) {
+  // Recurring events have no start: FullCalendar ignores `start` and
+  // `date` once a recurrence field is set. Otherwise it reads `date` as
+  // the start when there's no `start`, as written.
+  if (!RecurrenceFields.some(isSet)) {
+    const [field, start] =
+      event.start === undefined && isSet("date")
+        ? ["date", spec.date]
+        : ["start", event.start];
+    if (start === undefined) {
       errors.push("No start, so this event can't appear on any calendar.");
+    } else if (typeof start === "string" && !isCalendarReadable(start)) {
+      errors.push(
+        `Can't read ${field} "${start}" as a date, so this event can't appear on any calendar.`
+      );
     }
-  } else if (!CalendarIsoPattern.test(event.start)) {
-    errors.push(
-      `Can't read start "${event.start}" as a date, so this event can't appear on any calendar.`
-    );
+  }
+
+  for (const field of ["start", "end"]) {
+    if (looksLikeCompactDate(spec[field])) {
+      warnings.push(
+        `${field} ${String(spec[field])} is read as milliseconds since 1970; to mean a date, quote it: '${String(spec[field])}'.`
+      );
+    }
   }
 
   for (const field of Object.keys(spec)) {
@@ -225,10 +284,10 @@ export function checkEvent(
   if (
     event.start !== undefined &&
     event.end !== undefined &&
-    endsBeforeStart(event.start, event.end)
+    endsByStart(event.start, event.end)
   ) {
     warnings.push(
-      `end (${event.end}) is before start (${event.start}), so calendars ignore the end.`
+      `end (${event.end}) isn't after start (${event.start}), so calendars ignore the end.`
     );
   }
 
@@ -238,7 +297,11 @@ export function checkEvent(
         ? { set: "startTimeZone", other: "end" }
         : { set: "endTimeZone", other: "start" }
       : undefined;
-    if (zoneOnlyOn && isSet(zoneOnlyOn.other)) {
+    if (
+      zoneOnlyOn &&
+      isSet(zoneOnlyOn.other) &&
+      !namesItsZone(spec[zoneOnlyOn.other])
+    ) {
       const fallback =
         event.timeZone === undefined
           ? "the itinerary's time zone"

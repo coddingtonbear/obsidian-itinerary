@@ -111,7 +111,22 @@ describe("readEventBlock", () => {
       }
     );
 
+    test("on a date FullCalendar can't read", () => {
+      expect(problems("title: Parade\ndate: next tuesday").errors).toEqual([
+        `Can't read date "next tuesday" as a date, so this event can't appear on any calendar.`,
+      ]);
+    });
+
+    test("not on the start of a recurring event, which FullCalendar ignores", () => {
+      expect(
+        problems("title: Class\ndaysOfWeek: [1]\nstartTime: '10:00'\nstart: '10:00'")
+          .errors
+      ).toEqual([]);
+    });
+
     test.each([
+      ["a year", "'2021'"],
+      ["a year and month", "2021-11"],
       ["a compact date", "'20211101'"],
       ["a time with an offset", '"2021-11-01T12:00+01:00"'],
       ["milliseconds since 1970", "1635782400000"],
@@ -151,7 +166,19 @@ describe("readEventBlock", () => {
       ).toEqual([`Unknown field "${field}": did you mean "${known}"?`]);
     });
 
-    test.each([["seat"], ["cost"], ["notes"], ["is"], ["place"], ["time"]])(
+    test.each([
+      ["seat"],
+      ["cost"],
+      ["notes"],
+      ["is"],
+      ["place"],
+      ["time"],
+      ["gate"],
+      ["rate"],
+      ["stars"],
+      ["tax"],
+      ["group"],
+    ])(
       "not on a custom field like %j",
       (field) => {
         expect(
@@ -173,14 +200,31 @@ describe("readEventBlock", () => {
       ["wall-clock times", "2021-11-01T10:00", "2021-11-01T09:00"],
       ["dates", "2021-11-03", "2021-11-01"],
       ["times with offsets", "2021-11-01T10:00Z", "2021-11-01T10:30+01:00"],
+      ["the same time", "2021-11-01T10:00", "2021-11-01T10:00"],
     ])("on an end before its start, for %s", (_, from, to) => {
       const { event, warnings } = readEventBlock(
         `title: Parade\nstart: "${from}"\nend: "${to}"`
       );
       expect(warnings).toEqual([
-        `end (${event.end}) is before start (${event.start}), so calendars ignore the end.`,
+        `end (${event.end}) isn't after start (${event.start}), so calendars ignore the end.`,
       ]);
     });
+
+    test.each([["start"], ["end"]])(
+      "on an unquoted compact date in %s",
+      (field) => {
+        const times: Record<string, string> = {
+          start: "start: 2021-11-01",
+          end: "end: 2021-11-05",
+        };
+        times[field] = `${field}: 20211101`;
+        expect(
+          problems(`title: Trip\n${times.start}\n${times.end}`).warnings
+        ).toContain(
+          `${field} 20211101 is read as milliseconds since 1970; to mean a date, quote it: '20211101'.`
+        );
+      }
+    );
 
     test("compares times in the zones they're written in", () => {
       // Arrives in Montreal three hours "earlier" by the clock, but later.
@@ -198,7 +242,6 @@ describe("readEventBlock", () => {
     });
 
     test.each([
-      ["the same time", "2021-11-01T10:00", "2021-11-01T10:00"],
       ["one with an offset and one without", "2021-11-01T10:00Z", "2021-11-01T09:00"],
     ])("not on an end at %s", (_, from, to) => {
       expect(
@@ -221,6 +264,14 @@ describe("readEventBlock", () => {
           `title: Flight\nstart: 2022-08-07T10:30\nend: 2022-08-07T20:49\n${zones}`
         ).warnings
       ).toEqual([warning]);
+    });
+
+    test("not on a start zone when the end names its own offset", () => {
+      expect(
+        problems(
+          'title: Flight\nstart: 2022-08-07T10:30\nstartTimeZone: America/Los_Angeles\nend: "2022-08-08T00:49Z"'
+        ).warnings
+      ).toEqual([]);
     });
 
     test("not on a start zone for an event without an end", () => {

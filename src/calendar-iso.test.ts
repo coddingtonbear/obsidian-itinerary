@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { isCalendarReadable } from "./checks";
 import { CalendarIsoPattern } from "./extractor";
 
 /** FullCalendar's own (unexported) ISO date regex, read from its source.
@@ -45,5 +46,24 @@ describe("CalendarIsoPattern", () => {
     "2021-11-01T12:00:30,5",
   ])("agrees with FullCalendar on %j", (time) => {
     expect(CalendarIsoPattern.test(time)).toBe(theirs.test(time));
+  });
+});
+
+describe("isCalendarReadable", () => {
+  const theirs = fullCalendarIsoPattern();
+
+  test.each([
+    "2021",
+    "2021-11",
+    "202111",
+    "2021-11-01",
+    "2021-11-01T12:00Z",
+    "2021-11T12:00",
+    "21-11-01",
+    "next tuesday",
+    "2021/11/01",
+    " 2021",
+  ])("agrees with FullCalendar on %j", (time) => {
+    expect(isCalendarReadable(time)).toBe(theirs.test(time));
   });
 });

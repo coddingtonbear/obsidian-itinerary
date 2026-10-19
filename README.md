@@ -167,14 +167,15 @@ Where an event block is rendered in your note, it points out likely mistakes.  T
 
 Errors replace the event's summary, since the event can't appear on any calendar:
 
-- There is no `start` (unless the event uses FullCalendar's `date`, or recurs with `daysOfWeek`, `startTime`, `startRecur` and friends).
-- The `start` can't be read as a date, such as `start: next tuesday`.  Write it as an ISO date or time: `2021-11-01` or `2021-11-01T12:00`.
+- There is no `start` (unless the event uses FullCalendar's `date` instead, or recurs with `daysOfWeek`, `startTime`, `startRecur` and friends).
+- The `start` (or `date`) can't be read as a date, such as `start: next tuesday`.  Write it as an ISO date or time: `2021-11-01` or `2021-11-01T12:00`.
 
 Warnings appear in a small line under the summary; the event still appears on calendars:
 
 - A field that looks like a misspelling of a known one, such as `colour`, `tags`, `timezone` or `titel`.  Fields that don't resemble a known one are left alone, since they may be your own.
 - There is no `title`, so the event is called "Untitled event".
-- The `end` is before the `start`, so calendars ignore the `end`.
+- The `end` isn't after the `start`, so calendars ignore the `end`.
+- A `start` or `end` like `20211101` without quotes, which YAML reads as a number, and so as milliseconds since 1970.  Quote it (`'20211101'`) to mean the date.
 - Only one of `startTimeZone` and `endTimeZone` is set, so the other time is read in the event's `timeZone`, or the itinerary's time zone if it has none.
 
 ### Expressions
