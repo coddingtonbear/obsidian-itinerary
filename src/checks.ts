@@ -69,6 +69,7 @@ export const PluginEventFields: readonly string[] = [
   "startTimeZone",
   "endTimeZone",
   "hidden",
+  "order",
   "backgroundColor",
   "borderColor",
   "textColor",
